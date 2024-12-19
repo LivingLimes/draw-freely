@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react"
+import { socket } from "./socket"
 import "./App.css"
 
 const CANVAS_HEIGHT = 300
@@ -46,6 +47,65 @@ const App = () => {
     contextRef.current = context
   }, [])
 
+  useEffect(() => {
+    const onDraw = (data) => {
+      console.log("onDraw")
+      const context = contextRef.current
+      if (!context) {
+        console.error(NO_CONTEXT_ERROR)
+        return
+      }
+
+      context.putImageData(
+        new ImageData(new Uint8ClampedArray(data), 300, 300),
+        0,
+        0
+      )
+    }
+
+    const onConnect = () => {
+      console.log("for debugging: onConnect", socket.id)
+    }
+
+    const onInitialLoad = (data) => {
+      console.log({ data }, "ddd")
+      console.log(data, "per", new ImageData(300, 300))
+      const context = contextRef.current
+      if (!context) {
+        console.error(NO_CONTEXT_ERROR)
+        return
+      }
+
+      context.putImageData(
+        new ImageData(new Uint8ClampedArray(data), 300, 300),
+        0,
+        0
+      )
+    }
+
+    const clearCanvas = () => {
+      const context = contextRef.current
+      if (!context) {
+        console.error(NO_CONTEXT_ERROR)
+        return
+      }
+
+      context.clearRect(0, 0, canvas.width, canvas.height)
+    }
+
+    socket.on("draw", onDraw)
+    socket.on("connect", onConnect)
+    socket.on("initial-data", onInitialLoad)
+    socket.on("clear-canvas", clearCanvas)
+
+    return () => {
+      socket.off("draw", onDraw)
+      socket.off("connect", onConnect)
+      socket.off("initial-data", onInitialLoad)
+      socket.off("clear-canvas", clearCanvas)
+    }
+  }, [])
+
   const startDrawing = (event) => {
     const { offsetX, offsetY } = event.nativeEvent
     const context = contextRef.current
@@ -54,11 +114,16 @@ const App = () => {
       console.error(NO_CONTEXT_ERROR)
       return
     }
+    setIsDrawing(true)
 
     context.beginPath()
     context.lineTo(offsetX, offsetY)
     context.stroke()
-    setIsDrawing(true)
+
+    socket?.emit(
+      "draw",
+      context.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).data
+    )
   }
 
   const draw = (event) => {
@@ -73,15 +138,14 @@ const App = () => {
     const { offsetX, offsetY } = event.nativeEvent
     context.lineTo(offsetX, offsetY)
     context.stroke()
+
+    socket?.emit(
+      "draw",
+      context.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).data
+    )
   }
 
   const stopDrawing = () => {
-    const context = contextRef.current
-    if (!context) {
-      console.error(NO_CONTEXT_ERROR)
-      return
-    }
-
     setIsDrawing(false)
   }
 
@@ -92,6 +156,8 @@ const App = () => {
     }
 
     contextRef.current.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+
+    socket?.emit("clear-canvas")
   }
 
   return (
