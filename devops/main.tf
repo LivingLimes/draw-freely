@@ -25,6 +25,73 @@ data "aws_subnet" "subnet" {
   default_for_az    = true
 }
 
+resource aws_security_group security_group {
+  name = "${var.app_name}-${var.environment}-sg"
+  description = "Security group for just-let-me-draw game"
+  vpc_id = data.aws_vpc.vpc.id
+
+  tags = {
+    Name = "${var.app_name}-${var.environment}-sg"
+    Environment = var.environment
+    Service = var.app_name
+    ManagedBy = local.managed_by
+  }
+
+  lifecycle {
+    create_before_destroy = false
+  }
+}
+
+resource aws_vpc_security_group_ingress_rule https_wss_ingress_rule {
+  security_group_id = aws_security_group.security_group.id
+  ip_protocol = "tcp"
+
+  description = "HTTPS and WSS traffic."
+  from_port = 443
+  to_port = 443
+  cidr_ipv4 = "0.0.0.0/0"
+}
+
+resource aws_vpc_security_group_ingress_rule http_ingress_rule {
+  security_group_id = aws_security_group.security_group.id
+  ip_protocol = "tcp"
+
+  description = "HTTP for HTTPS redirect."
+  from_port = 80
+  to_port = 80
+  cidr_ipv4 = "0.0.0.0/0"
+}
+
+resource aws_vpc_security_group_egress_rule https_wss_egress_rule {
+  security_group_id = aws_security_group.security_group.id
+  ip_protocol = "tcp"
+
+  description = "HTTPS and WSS traffic to communicate with frontend and download packages."
+  from_port = 443
+  to_port = 443
+  cidr_ipv4 = "0.0.0.0/0"
+}
+
+resource aws_vpc_security_group_egress_rule http_egress_rule {
+  security_group_id = aws_security_group.security_group.id
+  ip_protocol = "tcp"
+
+  description = "HTTP traffic to download packages."
+  from_port = 80
+  to_port = 80
+  cidr_ipv4 = "0.0.0.0/0"
+}
+
+resource aws_vpc_security_group_egress_rule dns_egress_rule {
+  security_group_id = aws_security_group.security_group.id
+  ip_protocol = "udp"
+
+  description = "DNS resolution"
+  from_port = 53
+  to_port = 53
+  cidr_ipv4 = "0.0.0.0/0"
+}
+
 data "aws_ami" "server" {
   most_recent = true
   owners      = ["amazon"]
@@ -43,6 +110,8 @@ data "aws_ami" "server" {
 resource "aws_instance" "web" {
   ami           = data.aws_ami.server.id
   instance_type = "t2.nano"
+
+  vpc_security_group_ids = [aws_security_group.security_group.id]
 
   monitoring = false
 
