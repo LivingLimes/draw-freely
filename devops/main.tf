@@ -62,6 +62,16 @@ resource aws_vpc_security_group_ingress_rule http_ingress_rule {
   cidr_ipv4 = "0.0.0.0/0"
 }
 
+resource aws_vpc_security_group_ingress_rule ssh_ingress_rule {
+  security_group_id = aws_security_group.security_group.id
+  ip_protocol = "tcp"
+
+  description = "Enable SSH for testing only. All IP addresses are allowed because I had trouble getting it to work through a VPN."
+  from_port = 22
+  to_port = 22
+  cidr_ipv4 = "0.0.0.0/0"
+}
+
 resource aws_vpc_security_group_egress_rule https_wss_egress_rule {
   security_group_id = aws_security_group.security_group.id
   ip_protocol = "tcp"
@@ -114,6 +124,11 @@ resource "aws_instance" "web" {
   vpc_security_group_ids = [aws_security_group.security_group.id]
 
   monitoring = false
+
+  # Key is manually created.
+  key_name = "just-let-me-draw"
+
+  user_data = file("${path.module}/on-deploy.sh")
 
   root_block_device {
     volume_size           = 8
