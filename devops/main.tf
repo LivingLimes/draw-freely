@@ -1,5 +1,19 @@
 locals {
   managed_by = "terraform"
+  name_prefix = "${var.app_name}-${var.environment}"
+
+  port = {
+    http = 80
+    https = 443
+    ssh = 22
+    dns = 53
+  }
+
+  common_tags = {
+    Environment = var.environment
+    Service = var.app_name
+    ManagedBy = local.managed_by
+  }
 }
 
 terraform {
@@ -26,16 +40,13 @@ data "aws_subnet" "subnet" {
 }
 
 resource aws_security_group security_group {
-  name = "${var.app_name}-${var.environment}-sg"
+  name = "${name_prefix}-sg"
   description = "Security group for just-let-me-draw game"
   vpc_id = data.aws_vpc.vpc.id
 
-  tags = {
-    Name = "${var.app_name}-${var.environment}-sg"
-    Environment = var.environment
-    Service = var.app_name
-    ManagedBy = local.managed_by
-  }
+  tags = merge(common_tags, {
+    Name = "${name_prefix}-sg"
+  })
 
   lifecycle {
     create_before_destroy = false
@@ -47,8 +58,8 @@ resource aws_vpc_security_group_ingress_rule https_wss_ingress_rule {
   ip_protocol = "tcp"
 
   description = "HTTPS and WSS traffic."
-  from_port = 443
-  to_port = 443
+  from_port = local.port.https
+  to_port = local.port.https
   cidr_ipv4 = "0.0.0.0/0"
 }
 
@@ -57,8 +68,8 @@ resource aws_vpc_security_group_ingress_rule http_ingress_rule {
   ip_protocol = "tcp"
 
   description = "HTTP for HTTPS redirect."
-  from_port = 80
-  to_port = 80
+  from_port = local.port.http
+  to_port = local.port.http
   cidr_ipv4 = "0.0.0.0/0"
 }
 
@@ -67,8 +78,8 @@ resource aws_vpc_security_group_ingress_rule ssh_ingress_rule {
   ip_protocol = "tcp"
 
   description = "Enable SSH for testing only. All IP addresses are allowed because I had trouble getting it to work through a VPN."
-  from_port = 22
-  to_port = 22
+  from_port = local.port.ssh
+  to_port = local.port.ssh
   cidr_ipv4 = "0.0.0.0/0"
 }
 
@@ -77,8 +88,8 @@ resource aws_vpc_security_group_egress_rule https_wss_egress_rule {
   ip_protocol = "tcp"
 
   description = "HTTPS and WSS traffic to communicate with frontend and download packages."
-  from_port = 443
-  to_port = 443
+  from_port = local.port.https
+  to_port = local.port.https
   cidr_ipv4 = "0.0.0.0/0"
 }
 
@@ -87,8 +98,8 @@ resource aws_vpc_security_group_egress_rule http_egress_rule {
   ip_protocol = "tcp"
 
   description = "HTTP traffic to download packages."
-  from_port = 80
-  to_port = 80
+  from_port = local.port.http
+  to_port = local.port.http
   cidr_ipv4 = "0.0.0.0/0"
 }
 
@@ -97,8 +108,8 @@ resource aws_vpc_security_group_egress_rule dns_egress_rule {
   ip_protocol = "udp"
 
   description = "DNS resolution"
-  from_port = 53
-  to_port = 53
+  from_port = local.port.dns
+  to_port = local.port.dns
   cidr_ipv4 = "0.0.0.0/0"
 }
 
@@ -137,12 +148,9 @@ resource "aws_instance" "web" {
     throughput            = 125
     encrypted             = true
     delete_on_termination = true
-    tags = {
-      Name        = "${var.app_name}-${var.environment}-root"
-      Environment = var.environment
-      Service     = var.app_name
-      ManagedBy   = local.managed_by
-    }
+    tags = merge(local.common_tags, {
+      Name        = "${name_prefix}-root"
+    })
   }
 
   hibernation                          = false
@@ -165,10 +173,7 @@ resource "aws_instance" "web" {
     auto_recovery = "default"
   }
 
-  tags = {
-    Name        = "${var.app_name}-${var.environment}"
-    Environment = var.environment
-    Service     = var.app_name
-    ManagedBy   = local.managed_by
-  }
+  tags = merge(local.common_tags, {
+    Name        = name_prefix
+  })
 }
