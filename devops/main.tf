@@ -17,35 +17,81 @@ locals {
 }
 
 terraform {
+  required_version = ">= 1.0.0"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
   }
+
+}
+
+variable vpc_cidr_block {
+  type = string
 }
 
 provider "aws" {
-  region = "ap-southeast-2"
+  region = var.region
 }
 
-data "aws_vpc" "vpc" {
-  default = true
+resource "aws_vpc" vpc {
+  cidr_block = var.vpc_cidr_block
+
+  enable_dns_hostnames = true
+  enable_dns_support = true
+
+  instance_tenancy     = "default"
+  
+  tags = merge(local.common_tags, {
+    Name        = "${local.name_prefix}-vpc"
+  })
 }
 
-data "aws_subnet" "subnet" {
-  vpc_id            = data.aws_vpc.vpc.id
-  availability_zone = "${var.region}a"
-  default_for_az    = true
+resource "aws_subnet" "public_subnet" {
+  vpc_id                  = aws_vpc.vpc.id
+
+  cidr_block              = "10.0.1.0/24"  
+  availability_zone       = "${var.region}a"
+  map_public_ip_on_launch = true
+
+  assign_ipv6_address_on_creation = true
+
+  tags = merge(local.common_tags, {
+    Name        = "${local.name_prefix}-subnet"
+  })
+}
+
+resource "aws_route_table" route_table {
+  vpc_id = aws_vpc.vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.internet_gateway.id
+  }
+}
+
+resource "aws_route_table_association" route_table_association {
+  route_table_id = aws_route_table.route_table.id
+  subnet_id = aws_subnet.public_subnet.id
+}
+
+resource "aws_internet_gateway" internet_gateway {
+  vpc_id = aws_vpc.vpc.id
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-igw"
+  })
 }
 
 resource aws_security_group security_group {
-  name = "${name_prefix}-sg"
+  name = "${local.name_prefix}-sg"
   description = "Security group for just-let-me-draw game"
-  vpc_id = data.aws_vpc.vpc.id
+  vpc_id = aws_vpc.vpc.id
 
-  tags = merge(common_tags, {
-    Name = "${name_prefix}-sg"
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-sg"
   })
 
   lifecycle {
@@ -149,12 +195,12 @@ resource "aws_instance" "web" {
     encrypted             = true
     delete_on_termination = true
     tags = merge(local.common_tags, {
-      Name        = "${name_prefix}-root"
+      Name        = "${local.name_prefix}-root"
     })
   }
 
   hibernation                          = false
-  disable_api_termination              = false
+  disable_api_termination              = var.disable_api_termination
   ebs_optimized                        = false
   instance_initiated_shutdown_behavior = "stop"
 
@@ -174,6 +220,6 @@ resource "aws_instance" "web" {
   }
 
   tags = merge(local.common_tags, {
-    Name        = name_prefix
+    Name        = local.name_prefix
   })
 }
