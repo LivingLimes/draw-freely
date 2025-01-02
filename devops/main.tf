@@ -1,6 +1,15 @@
 locals {
   managed_by  = "terraform"
   name_prefix = "${var.app_name}-${var.environment}"
+
+  port = {
+    http = 80
+    https = 443
+    ssh = 22
+    dns = 53
+  }
+
+  ipv4_all_ips = "0.0.0.0/0"
 }
 
 terraform {
@@ -27,6 +36,76 @@ provider "aws" {
   }
 }
 
+resource aws_security_group security_group {
+  name = "${var.app_name}-${var.environment}-sg"
+  description = "Security group for just-let-me-draw game"
+  
+  tags = {
+    Name = "${var.app_name}-${var.environment}-sg"
+  }
+
+  lifecycle {
+    create_before_destroy = false
+  }
+}
+
+resource aws_vpc_security_group_ingress_rule https_wss_ingress_rule {
+  security_group_id = aws_security_group.security_group.id
+  ip_protocol = "tcp"
+  description = "HTTPS and WSS traffic."
+  from_port = local.port.https
+  to_port = local.port.https
+  cidr_ipv4 = local.ipv4_all_ips
+}
+
+resource aws_vpc_security_group_ingress_rule http_ingress_rule {
+  security_group_id = aws_security_group.security_group.id
+  ip_protocol = "tcp"
+  description = "HTTP for HTTPS redirect."
+  from_port = local.port.http
+  to_port = local.port.http
+  cidr_ipv4 = local.ipv4_all_ips
+}
+
+resource aws_vpc_security_group_ingress_rule ssh_ingress_rule {
+  count = var.enable_ssh_access ? 1 : 0
+
+  security_group_id = aws_security_group.security_group.id
+  ip_protocol = "tcp"
+
+  description = "Enable SSH for testing only. All IP addresses are allowed because I had trouble getting it to work through a VPN."
+  from_port = local.port.ssh
+  to_port = local.port.ssh
+  cidr_ipv4 = local.ipv4_all_ips
+}
+
+resource aws_vpc_security_group_egress_rule https_wss_egress_rule {
+  security_group_id = aws_security_group.security_group.id
+  ip_protocol = "tcp"
+  description = "HTTPS and WSS traffic to communicate with frontend and download packages."
+  from_port = local.port.https
+  to_port = local.port.https
+  cidr_ipv4 = local.ipv4_all_ips
+}
+
+resource aws_vpc_security_group_egress_rule http_egress_rule {
+  security_group_id = aws_security_group.security_group.id
+  ip_protocol = "tcp"
+  description = "HTTP traffic to download packages."
+  from_port = local.port.http
+  to_port = local.port.http
+  cidr_ipv4 = local.ipv4_all_ips
+}
+
+resource aws_vpc_security_group_egress_rule dns_egress_rule {
+  security_group_id = aws_security_group.security_group.id
+  ip_protocol = "udp"
+  description = "DNS resolution"
+  from_port = local.port.dns
+  to_port = local.port.dns
+  cidr_ipv4 = local.ipv4_all_ips
+}
+
 data "aws_ami" "server" {
   most_recent = true
   owners      = ["amazon"]
@@ -51,6 +130,8 @@ resource "aws_instance" "web" {
   ami           = data.aws_ami.server.id
   instance_type = var.instance_type
   availability_zone = "${var.region}a"
+
+  vpc_security_group_ids = [aws_security_group.security_group.id]
 
   monitoring = false
 

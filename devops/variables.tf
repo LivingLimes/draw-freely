@@ -26,3 +26,9 @@ variable "disable_api_termination" {
   default     = true
   description = "Disable api termination for ec2 instances."
 }
+
+variable "enable_ssh_access" {
+  type = bool
+  default = false
+  description = "Whether to enable SSH access for ec2 instances"
+}
