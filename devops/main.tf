@@ -36,7 +36,62 @@ provider "aws" {
   }
 }
 
+resource "aws_vpc" "vpc" {
+  cidr_block = "10.0.0.0/16"
+
+  enable_dns_hostnames = true
+  enable_dns_support = true
+
+  instance_tenancy = "default"
+  
+  tags = {
+    Name = "${local.name_prefix}-vpc"
+  }
+}
+
+resource "aws_subnet" "public_subnet" {
+  vpc_id                  = aws_vpc.vpc.id
+
+  cidr_block              = "10.0.1.0/24"  
+  availability_zone       = "${var.region}a"
+  map_public_ip_on_launch = false
+
+  assign_ipv6_address_on_creation = false
+
+  tags = {
+    Name = "${local.name_prefix}-subnet"
+  }
+}
+
+resource "aws_route_table" "route_table" {
+  vpc_id = aws_vpc.vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.internet_gateway.id
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-rt"
+  }
+}
+
+resource "aws_route_table_association" route_table_association {
+  route_table_id = aws_route_table.route_table.id
+  subnet_id = aws_subnet.public_subnet.id
+}
+
+resource "aws_internet_gateway" internet_gateway {
+  vpc_id = aws_vpc.vpc.id
+
+  tags = {
+    Name = "${local.name_prefix}-igw"
+  }
+}
+
 resource aws_security_group security_group {
+  vpc_id = aws_vpc.vpc.id
+
   name = "${var.app_name}-${var.environment}-sg"
   description = "Security group for just-let-me-draw game"
   
@@ -132,6 +187,9 @@ resource "aws_instance" "web" {
   availability_zone = "${var.region}a"
 
   vpc_security_group_ids = [aws_security_group.security_group.id]
+  subnet_id = aws_subnet.public_subnet.id
+
+  associate_public_ip_address = true
 
   monitoring = false
 
