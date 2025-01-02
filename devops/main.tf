@@ -135,6 +135,11 @@ resource "aws_instance" "web" {
 
   monitoring = false
 
+  # Key is manually created.
+  key_name = "just-let-me-draw"
+
+  user_data = file("${path.module}/on-deploy.sh")
+
   root_block_device {
     volume_size           = 8
     volume_type           = "gp3"
