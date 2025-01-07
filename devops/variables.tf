@@ -32,3 +32,8 @@ variable "enable_ssh_access" {
   default = false
   description = "Whether to enable SSH access for ec2 instances"
 }
+
+variable "domain" {
+  type = string
+  description = "EC2 instance domain name"
+}

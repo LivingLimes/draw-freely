@@ -189,7 +189,7 @@ resource "aws_instance" "web" {
   vpc_security_group_ids = [aws_security_group.security_group.id]
   subnet_id = aws_subnet.public_subnet.id
 
-  associate_public_ip_address = true
+  associate_public_ip_address = false
 
   monitoring = false
 
@@ -234,4 +234,44 @@ resource "aws_instance" "web" {
   tags = {
     Name = local.name_prefix
   }
+}
+
+resource "aws_eip" "web_eip" {
+  domain = "vpc"
+
+  tags = {
+    Name = "${local.name_prefix}-eip"
+  }
+
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
+resource "aws_eip_association" "web_eip_association" {
+  instance_id = aws_instance.web.id
+  allocation_id = aws_eip.web_eip.id
+}
+
+resource "aws_route53_zone" "zone" {
+  name = var.domain
+  force_destroy = false
+
+  tags = {
+    Name = "${local.name_prefix}-zone"
+  }
+}
+
+resource "aws_route53_record" "a_record" {
+  zone_id = aws_route53_zone.zone.zone_id
+  name    = var.domain
+  type    = "A"
+  ttl     = 300
+
+  records = [aws_eip.web_eip.public_ip]
+}
+
+output "nameservers" {
+  description = "Nameservers for the Route 53 hosted zone. Configure these in your domain registrar."
+  value       = aws_route53_zone.zone.name_servers
 }
