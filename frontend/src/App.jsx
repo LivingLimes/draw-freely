@@ -20,10 +20,27 @@ const NO_CONTEXT_ERROR = `Canvas context is null. This generally means that
 
 More details here: https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext`
 
+const SOCKET_EVENTS_INBOUND = {
+  DRAW: "draw",
+  CONNECT: "connect",
+  INITIAL_DATA: "initial-data",
+  UPDATE_TURN: "update-turn",
+  CLEAR_CANVAS: "clear-canvas",
+}
+
+const SOCKET_EVENTS_OUTBOUND = {
+  DRAW: "draw",
+  END_TURN: "end-turn",
+  CLEAR_CANVAS: "clear-canvas"
+}
+
 const App = () => {
   const canvasRef = useRef(null)
   const [isDrawing, setIsDrawing] = useState(false)
+  const [turnPlayer, setTurnPlayer] = useState(null)
   const contextRef = useRef(null)
+
+  const isMyTurn = socket.id === turnPlayer
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -83,6 +100,10 @@ const App = () => {
       )
     }
 
+    const onUpdateTurn = ({ turnPlayer }) => {
+      setTurnPlayer(turnPlayer)
+    }
+
     const clearCanvas = () => {
       const context = contextRef.current
       if (!context) {
@@ -93,20 +114,24 @@ const App = () => {
       context.clearRect(0, 0, canvas.width, canvas.height)
     }
 
-    socket.on("draw", onDraw)
-    socket.on("connect", onConnect)
-    socket.on("initial-data", onInitialLoad)
-    socket.on("clear-canvas", clearCanvas)
+    socket.on(SOCKET_EVENTS_INBOUND.DRAW, onDraw)
+    socket.on(SOCKET_EVENTS_INBOUND.CONNECT, onConnect)
+    socket.on(SOCKET_EVENTS_INBOUND.INITIAL_DATA, onInitialLoad)
+    socket.on(SOCKET_EVENTS_INBOUND.UPDATE_TURN, onUpdateTurn)
+    socket.on(SOCKET_EVENTS_INBOUND.CLEAR_CANVAS, clearCanvas)
 
     return () => {
-      socket.off("draw", onDraw)
-      socket.off("connect", onConnect)
-      socket.off("initial-data", onInitialLoad)
-      socket.off("clear-canvas", clearCanvas)
+      socket.off(SOCKET_EVENTS_INBOUND.DRAW, onDraw)
+      socket.off(SOCKET_EVENTS_INBOUND.CONNECT, onConnect)
+      socket.off(SOCKET_EVENTS_INBOUND.INITIAL_DATA, onInitialLoad)
+      socket.off(SOCKET_EVENTS_INBOUND.UPDATE_TURN, onUpdateTurn)
+      socket.off(SOCKET_EVENTS_INBOUND.CLEAR_CANVAS, clearCanvas)
     }
   }, [])
 
   const startDrawing = (event) => {
+    if (!isMyTurn) return
+
     const { offsetX, offsetY } = event.nativeEvent
     const context = contextRef.current
 
@@ -121,7 +146,7 @@ const App = () => {
     context.stroke()
 
     socket?.emit(
-      "draw",
+      SOCKET_EVENTS_OUTBOUND.DRAW,
       context.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).data
     )
   }
@@ -140,13 +165,17 @@ const App = () => {
     context.stroke()
 
     socket?.emit(
-      "draw",
+      SOCKET_EVENTS_OUTBOUND.DRAW,
       context.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).data
     )
   }
 
   const stopDrawing = () => {
+    if (!isDrawing) return 
+
     setIsDrawing(false)
+
+    socket.emit(SOCKET_EVENTS_OUTBOUND.END_TURN)
   }
 
   const clearCanvas = () => {
@@ -157,11 +186,13 @@ const App = () => {
 
     contextRef.current.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
 
-    socket?.emit("clear-canvas")
+    socket?.emit(SOCKET_EVENTS_OUTBOUND.CLEAR_CANVAS)
   }
 
   return (
     <div className="drawing-container">
+      <button>One line</button>
+      <div>{isMyTurn ? "It is your turn to draw!" : `Waiting for your turn to draw. It is currently ${turnPlayer}'s turn to draw!`}</div>
       <canvas
         ref={canvasRef}
         onMouseDown={startDrawing}

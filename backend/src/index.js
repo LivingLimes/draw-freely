@@ -16,6 +16,23 @@ const io = new Server(httpServer, {
   }
 })
 
+const SOCKET_EVENTS_OUTBOUND = {
+  DRAW: "draw",
+  CONNECT: "connect",
+  INITIAL_DATA: "initial-data",
+  UPDATE_TURN: "update-turn",
+  CLEAR_CANVAS: "clear-canvas",
+}
+
+const SOCKET_EVENTS_INBOUND = {
+  CONNECTION: "connection",
+  DISCONNECT: "disconnect",
+
+  DRAW: "draw",
+  END_TURN: "end-turn",
+  CLEAR_CANVAS: "clear-canvas"
+}
+
 const CANVAS_HEIGHT = 300
 const CANVAS_WIDTH = 300
 // In the canvas, each pixel is represented with 4 values: R, G, B and A.
@@ -25,29 +42,56 @@ function createCanvasArray() {
   return new Array(CANVAS_HEIGHT * CANVAS_WIDTH * PIXEL_SIZE)
 }
 let drawing = createCanvasArray()
+let players = []
+let turnPlayer = null
 
-io.on('connection', (socket) => {
-  console.log('User connected', socket.id)
+io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
+  console.log('User connected:', socket.id);
 
-  socket.emit('initial-data', drawing)
+  players.push(socket.id)
 
-  socket.on('draw', (drawingAsArray) => {
+  if (players.length === 1) {
+    turnPlayer = socket.id
+  }
+
+  socket.emit(SOCKET_EVENTS_OUTBOUND.UPDATE_TURN, {
+    turnPlayer
+  })
+  
+  socket.emit(SOCKET_EVENTS_OUTBOUND.INITIAL_DATA, drawing)
+
+  socket.on(SOCKET_EVENTS_INBOUND.DRAW, (drawingAsArray) => {
     drawing = drawingAsArray
 
-    socket.broadcast.emit('draw', drawingAsArray)
+    console.log('pre emit draw when drawing')
+    socket.broadcast.emit(SOCKET_EVENTS_OUTBOUND.DRAW, drawingAsArray)
   })
 
-  socket.on('clear-canvas', () => {
+  socket.on(SOCKET_EVENTS_INBOUND.CLEAR_CANVAS, () => {
     drawing = createCanvasArray()
 
-    socket.broadcast.emit('clear-canvas')
+    socket.broadcast.emit(SOCKET_EVENTS_OUTBOUND.CLEAR_CANVAS)
   })
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected')
+  socket.on(SOCKET_EVENTS_INBOUND.END_TURN, () => {
+    const nextPlayer = getNextElement(players, turnPlayer)
+    turnPlayer = nextPlayer ?? players[0] ?? null
+    
+    io.emit(SOCKET_EVENTS_OUTBOUND.UPDATE_TURN, {
+      turnPlayer
+    })
+  })
+
+  socket.on(SOCKET_EVENTS_INBOUND.DISCONNECT, (reason) => {
+    console.log('User disconnected', socket.id, reason)
   })
 })
 
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
+
+function getNextElement(array, element) {
+  const currentIndex = array.indexOf(element)
+  return currentIndex === -1 ? null : array[(currentIndex + 1) % array.length]
+}
