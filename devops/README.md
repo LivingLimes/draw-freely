@@ -4,7 +4,7 @@
 
 ### One time set up
 1. [Install aws cli (v2.22.21)](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
-2. Create an IAM role linked to your root AWS account with full EC2 instance access.
+2. Create an IAM role linked to your root AWS account with full EC2 instance access and full Route53 access (I understand that these are overly permissive and will restrict them later).
 3. Configure your AWS CLI to connect to your IAM role using `aws configure`.
 4. [Install terraform (v5.82.2)](https://developer.hashicorp.com/terraform/install).
 
