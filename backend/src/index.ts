@@ -33,15 +33,54 @@ const SOCKET_EVENTS_INBOUND = {
   CLEAR_CANVAS: "clear-canvas"
 } as const
 
-const CANVAS_HEIGHT = 300
-const CANVAS_WIDTH = 300
-// In the canvas, each pixel is represented with 4 values: R, G, B and A.
-const PIXEL_SIZE = 4
+class Drawing {
+  static readonly #canvasHeight = 300
+  static readonly #canvasWidth = 300
+  // In the canvas, each pixel is represented with 4 values: R, G, B and A.
+  static readonly #pixelSize = 4
+  static readonly #totalArraySize = Drawing.#canvasHeight * Drawing.#canvasWidth * Drawing.#pixelSize
 
-function createCanvasArray(): Array<number> {
-  return new Array(CANVAS_HEIGHT * CANVAS_WIDTH * PIXEL_SIZE)
+  private value: Buffer
+
+  private constructor(_value: Buffer) {
+    this.value = _value
+  }
+
+  public getValue(): Readonly<Buffer> {
+    return this.value
+  }
+
+  public static canCreate(drawing: Buffer) {
+    if (!Buffer.isBuffer(drawing)) {
+        return false
+    }
+
+    if (drawing.length !== Drawing.#totalArraySize) {
+        return false
+    }
+
+    // We can validate this more strictly by enforcing all values to be black or white, but this is a bit more flexible.
+    if (!drawing.every(el => el >= 0 && el <= 255 && Number.isFinite(el))) {
+        return false
+    }
+
+    return true
+  }
+
+  public static createEmpty(): Drawing {
+    return new Drawing(Buffer.alloc(Drawing.#totalArraySize))
+  }
+
+  public static createFrom(drawing: Buffer): Drawing {
+    if (!this.canCreate(drawing)) {
+        throw Error('Cannot create drawing as it is malformed')
+    }
+
+    return new Drawing(drawing)
+  }
 }
-let drawing = createCanvasArray()
+
+let drawing = Drawing.createEmpty()
 let players: Array<string> = []
 let turnPlayer: string | undefined | null = undefined
 
@@ -58,22 +97,36 @@ io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
     turnPlayer
   })
   
-  socket.emit(SOCKET_EVENTS_OUTBOUND.INITIAL_DATA, drawing)
+  socket.emit(SOCKET_EVENTS_OUTBOUND.INITIAL_DATA, drawing.getValue())
 
   socket.on(SOCKET_EVENTS_INBOUND.DRAW, (drawingAsArray) => {
-    drawing = drawingAsArray
+    if (turnPlayer !== socket.id || !players.includes(socket.id)) {
+      return
+    }
 
-    console.log('pre emit draw when drawing')
-    socket.broadcast.emit(SOCKET_EVENTS_OUTBOUND.DRAW, drawingAsArray)
+    if (!Drawing.canCreate(drawingAsArray)) {
+      return
+    }
+    drawing = Drawing.createFrom(drawingAsArray)
+
+    socket.broadcast.emit(SOCKET_EVENTS_OUTBOUND.DRAW, drawing.getValue())
   })
 
   socket.on(SOCKET_EVENTS_INBOUND.CLEAR_CANVAS, () => {
-    drawing = createCanvasArray()
+    if (!players.includes(socket.id)) {
+      return
+    }
+
+    drawing = Drawing.createEmpty()
 
     socket.broadcast.emit(SOCKET_EVENTS_OUTBOUND.CLEAR_CANVAS)
   })
 
   socket.on(SOCKET_EVENTS_INBOUND.END_TURN, () => {
+    if (turnPlayer !== socket.id || !players.includes(socket.id)) {
+      return
+    }
+
     const nextPlayer = getNextElement(players, turnPlayer)
     turnPlayer = nextPlayer ?? players[0] ?? null
     
@@ -84,6 +137,15 @@ io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
 
   socket.on(SOCKET_EVENTS_INBOUND.DISCONNECT, (reason) => {
     console.log('User disconnected', socket.id, reason)
+
+    // Turn player disconnect special case
+    if (turnPlayer === socket.id) {
+      const nextPlayer = getNextElement(players, turnPlayer)
+      turnPlayer = nextPlayer ?? players[0] ?? null
+    }
+
+    // Turn player and viewer disconnect
+    players = players.filter(p => p !== socket.id)
   })
 })
 
