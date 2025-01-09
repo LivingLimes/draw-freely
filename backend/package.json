@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "tsx src/index.ts"
   },
   "dependencies": {
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
   }
 }

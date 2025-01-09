@@ -22,7 +22,7 @@ const SOCKET_EVENTS_OUTBOUND = {
   INITIAL_DATA: "initial-data",
   UPDATE_TURN: "update-turn",
   CLEAR_CANVAS: "clear-canvas",
-}
+} as const
 
 const SOCKET_EVENTS_INBOUND = {
   CONNECTION: "connection",
@@ -31,19 +31,19 @@ const SOCKET_EVENTS_INBOUND = {
   DRAW: "draw",
   END_TURN: "end-turn",
   CLEAR_CANVAS: "clear-canvas"
-}
+} as const
 
 const CANVAS_HEIGHT = 300
 const CANVAS_WIDTH = 300
 // In the canvas, each pixel is represented with 4 values: R, G, B and A.
 const PIXEL_SIZE = 4
 
-function createCanvasArray() {
+function createCanvasArray(): Array<number> {
   return new Array(CANVAS_HEIGHT * CANVAS_WIDTH * PIXEL_SIZE)
 }
 let drawing = createCanvasArray()
-let players = []
-let turnPlayer = null
+let players: Array<string> = []
+let turnPlayer: string | undefined | null = undefined
 
 io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
   console.log('User connected:', socket.id);
@@ -91,7 +91,7 @@ httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
 
-function getNextElement(array, element) {
+function getNextElement<T>(array: Array<T>, element: T) {
   const currentIndex = array.indexOf(element)
   return currentIndex === -1 ? null : array[(currentIndex + 1) % array.length]
 }

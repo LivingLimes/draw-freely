@@ -26,19 +26,20 @@ const SOCKET_EVENTS_INBOUND = {
   INITIAL_DATA: "initial-data",
   UPDATE_TURN: "update-turn",
   CLEAR_CANVAS: "clear-canvas",
-}
+} as const
 
 const SOCKET_EVENTS_OUTBOUND = {
   DRAW: "draw",
   END_TURN: "end-turn",
   CLEAR_CANVAS: "clear-canvas"
-}
+} as const
 
-const App = () => {
-  const canvasRef = useRef(null)
+const App: React.FC = () => {
+  // I'd typically initialise this as undefined, but using it as a `ref` in the canvas element requires it to be | null.
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
-  const [turnPlayer, setTurnPlayer] = useState(null)
-  const contextRef = useRef(null)
+  const [turnPlayer, setTurnPlayer] = useState<string | undefined>(undefined)
+  const contextRef = useRef<CanvasRenderingContext2D>(undefined)
 
   const isMyTurn = socket.id === turnPlayer
 
@@ -65,7 +66,7 @@ const App = () => {
   }, [])
 
   useEffect(() => {
-    const onDraw = (data) => {
+    const onDraw = (data: Array<number>) => {
       console.log("onDraw")
       const context = contextRef.current
       if (!context) {
@@ -84,7 +85,7 @@ const App = () => {
       console.log("for debugging: onConnect", socket.id)
     }
 
-    const onInitialLoad = (data) => {
+    const onInitialLoad = (data: Array<number>) => {
       console.log({ data }, "ddd")
       console.log(data, "per", new ImageData(300, 300))
       const context = contextRef.current
@@ -100,11 +101,17 @@ const App = () => {
       )
     }
 
-    const onUpdateTurn = ({ turnPlayer }) => {
+    const onUpdateTurn = ({ turnPlayer }: { turnPlayer: string }) => {
       setTurnPlayer(turnPlayer)
     }
 
     const clearCanvas = () => {
+      const canvas = canvasRef.current
+      if (!canvas) {
+        console.error(NO_CANVAS_ERROR)
+        return
+      }
+
       const context = contextRef.current
       if (!context) {
         console.error(NO_CONTEXT_ERROR)
@@ -129,7 +136,7 @@ const App = () => {
     }
   }, [])
 
-  const startDrawing = (event) => {
+  const startDrawing = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isMyTurn) return
 
     const { offsetX, offsetY } = event.nativeEvent
@@ -151,7 +158,7 @@ const App = () => {
     )
   }
 
-  const draw = (event) => {
+  const draw = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return
 
     const context = contextRef.current
@@ -209,3 +216,7 @@ const App = () => {
 }
 
 export default App
+
+
+{/* <button>Line length</button>
+<button>Time</button> */}

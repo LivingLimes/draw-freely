@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    // Target modern node
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "moduleResolution": "nodenext",
+    "module": "nodenext",
+
+    // Type safety and code cleanliness
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    
+    // Better development experience
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "esModuleInterop": true,
+    "preserveWatchOutput": true,
+    
+    // Production optimisation
+    "removeComments": true,
+    "declaration": false,
+    "skipLibCheck": false,
+    "sourceMap": false, // set this to true for development
+    
+    // Other
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "resolveJsonModule": true,
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
