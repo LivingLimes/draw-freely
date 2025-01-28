@@ -93,7 +93,7 @@ resource aws_security_group security_group {
   vpc_id = aws_vpc.vpc.id
 
   name = "${var.app_name}-${var.environment}-sg"
-  description = "Security group for just-let-me-draw game"
+  description = "Security group for draw-freely game"
   
   tags = {
     Name = "${var.app_name}-${var.environment}-sg"

@@ -1,6 +1,6 @@
-# Just Let Me Draw (JLMD)
+# Draw Freely
 
-JLMD is a drawing game that aims to inspire creativity through fun drawing anything you like on a shared canvas while taking turns with other drawers.
+Draw Freely is a drawing game that aims to inspire creativity through fun drawing anything you like on a shared canvas while taking turns with other drawers.
 
 There will be three modes:
 - Time mode: Each drawer gets a turn of 10 seconds before it is the next drawer's turn to draw.

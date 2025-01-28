@@ -4,7 +4,7 @@ variable "environment" {
 
 variable "app_name" {
   type    = string
-  default = "just-let-me-draw"
+  default = "draw-freely"
 }
 
 variable cost_center {

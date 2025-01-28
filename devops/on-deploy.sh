@@ -31,7 +31,7 @@ region = ${aws_region}
 credentials = Ec2InstanceMetadata
 EOF
 
-cat << 'EOF' > /etc/nginx/sites-available/just-let-me-draw
+cat << 'EOF' > /etc/nginx/sites-available/draw-freely
 server {
     listen 80;
     server_name drawfreely.art;
@@ -53,21 +53,21 @@ server {
 }
 EOF
 
-ln -s /etc/nginx/sites-available/just-let-me-draw /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/draw-freely /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
 
 mkdir -p /home/ubuntu/app
 cd /home/ubuntu/app
 
 git clone https://github.com/LivingLimes/draw-freely.git
-cd just-let-me-draw/backend
+cd draw-freely/backend
 npm install
 
 systemctl restart nginx
 
 npm install -g pm2
 
-FRONTEND_URL=https://draw-freely.vercel.app pm2 start --name "just-let-me-draw-backend" npm -- start
+FRONTEND_URL=https://draw-freely.vercel.app pm2 start --name "draw-freely-backend" npm -- start
 
 pm2 startup systemd
 pm2 save
