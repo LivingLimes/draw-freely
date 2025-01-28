@@ -185,6 +185,8 @@ resource "aws_instance" "web" {
   ami           = data.aws_ami.server.id
   instance_type = var.instance_type
   availability_zone = "${var.region}a"
+  
+  iam_instance_profile = aws_iam_instance_profile.certbot_profile.name
 
   vpc_security_group_ids = [aws_security_group.security_group.id]
   subnet_id = aws_subnet.public_subnet.id
@@ -196,7 +198,10 @@ resource "aws_instance" "web" {
   # Key is manually created.
   key_name = "just-let-me-draw"
 
-  user_data = file("${path.module}/on-deploy.sh")
+  user_data = templatefile("${path.module}/on-deploy.sh", {
+    aws_region = "${var.region}",
+    domain = "${var.domain}"
+  })
 
   root_block_device {
     volume_size           = 8
@@ -271,7 +276,61 @@ resource "aws_route53_record" "a_record" {
   records = [aws_eip.web_eip.public_ip]
 }
 
+resource "aws_iam_role" "certbot_role" {
+  name = "certbot-dns01-role"
+
+  assume_role_policy = jsonencode({
+    "Statement": [{
+      "Action": "sts:AssumeRole"
+      "Effect": "Allow"
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "certbot_policy" {
+  name = "certbot-dns01-policy"
+  role = aws_iam_role.certbot_role.name
+
+  policy = jsonencode({
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "route53:ListHostedZones",
+          "route53:GetChange"
+        ],
+        "Resource": [
+          "*"
+        ]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "route53:ChangeResourceRecordSets"
+        ],
+        "Resource": [
+          "arn:aws:route53:::hostedzone/${aws_route53_zone.zone.id}"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_instance_profile" "certbot_profile" {
+  name = "certbot_profile"
+  role = aws_iam_role.certbot_role.name
+}
+
 output "nameservers" {
   description = "Nameservers for the Route 53 hosted zone. Configure these in your domain registrar."
   value       = aws_route53_zone.zone.name_servers
+}
+
+output "elastic_ip" {
+  description = "EC2 elastic ip address"
+  value = aws_eip.web_eip.public_ip
 }

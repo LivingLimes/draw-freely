@@ -17,17 +17,41 @@ export NVM_DIR="$HOME/.nvm"
 nvm install v22.12.0
 nvm use v22.12.0
 
-sudo apt install git nginx -y
+# Not sure why this is needed again, but it failed once without it.
+sudo apt update
+sudo apt install git \
+                 nginx \
+                 python3 python3-venv libaugeas0 \
+                 -y
 
-cat << 'END' > /etc/nginx/sites-available/just-let-me-draw
+mkdir -p /home/ubuntu/.aws
+cat << EOF > /home/ubuntu/.aws/config
+[default]
+region = ${aws_region}
+credentials = Ec2InstanceMetadata
+EOF
+
+cat << 'EOF' > /etc/nginx/sites-available/just-let-me-draw
 server {
     listen 80;
+    server_name drawfreely.art;
 
     location / {
         proxy_pass http://localhost:3001;
     }
+
+    location /socket.io/ {
+        proxy_pass http://localhost:3001;
+
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host $host;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
 }
-END
+EOF
 
 ln -s /etc/nginx/sites-available/just-let-me-draw /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
@@ -35,7 +59,7 @@ rm -f /etc/nginx/sites-enabled/default
 mkdir -p /home/ubuntu/app
 cd /home/ubuntu/app
 
-git clone https://github.com/LivingLimes/just-let-me-draw.git
+git clone https://github.com/LivingLimes/draw-freely.git
 cd just-let-me-draw/backend
 npm install
 
@@ -43,7 +67,22 @@ systemctl restart nginx
 
 npm install -g pm2
 
-pm2 start --name "just-let-me-draw-backend" npm -- start
+FRONTEND_URL=https://draw-freely.vercel.app pm2 start --name "just-let-me-draw-backend" npm -- start
 
-sudo pm2 startup systemd
+pm2 startup systemd
 pm2 save
+
+sleep 6h
+
+sudo python3 -m venv /opt/certbot/
+sudo /opt/certbot/bin/pip install --upgrade pip
+sudo /opt/certbot/bin/pip install certbot certbot-nginx
+sudo ln -s /opt/certbot/bin/certbot /usr/bin/certbot
+sudo /opt/certbot/bin/pip install certbot-dns-route53
+
+until sudo certbot certonly -n -d drawfreely.art --dns-route53 --register-unsafely-without-email --agree-tos; do
+    echo "Certbot failed, waiting 1h for retry. This is probably happening because DNS is not propagated yet."
+    sleep 1h
+done
+
+sudo certbot install --nginx --non-interactive -d drawfreely.art --cert-name drawfreely.art

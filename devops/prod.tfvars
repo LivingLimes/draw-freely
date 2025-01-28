@@ -1,5 +1,5 @@
 environment   = "prod"
-instance_type = "t2.nano"
+instance_type = "t2.micro"
 enable_ssh_access = false
 domain = "drawfreely.art"
 

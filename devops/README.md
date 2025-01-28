@@ -29,6 +29,8 @@ terraform plan -out-var=prod.tfvars" -out=tfplan
 terraform apply -var-file="prod.tfvars" "tfplan"
 ```
 
+4. If running this for **production**, make sure to copy the name servers from the output and configure them in your domain registrar.
+
 ### Reverting scripts
 
 1. Revert your complete script run.
