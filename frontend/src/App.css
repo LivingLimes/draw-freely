@@ -9,6 +9,9 @@
 .drawing-canvas {
   border: 1px solid #ccc;
   border-radius: 8px;
+
+  /* Disable browser default touch behaviour as, for example, we do not want scroll behaviour whilst drawing on the canvas when on mobile */
+  touch-action: none;
 }
 
 .clear-button {

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react"
 import { socket } from "./socket"
 import { distanceBetweenTwoPoints } from "./utils"
 import "./App.css"
-
+import { type Pointer } from "./types"
 const CANVAS_HEIGHT = 300
 const CANVAS_WIDTH = 300
 
@@ -37,7 +37,6 @@ const SOCKET_EVENTS_OUTBOUND = {
 enum GameMode {
   OneLine = "One Line",
   LineLengthLimit = "Line Length Limit",
-  TimeLimit = "Time Limit",
 }
 
 const App: React.FC = () => {
@@ -53,9 +52,9 @@ const App: React.FC = () => {
   const [lineLengthLimit, setLineLengthLimit] = useState<number | undefined>(
     undefined
   )
-  const [lastX, setLastX] = useState<number | undefined | null>(undefined)
-  const [lastY, setLastY] = useState<number | undefined | null>(undefined)
   const [currentLineLength, setCurrentLineLength] = useState<number>(0)
+
+  const [ongoingPointer, setOngoingPointer] = useState<Pointer | undefined | null>(undefined)
 
   const shouldShowCanvas = gameMode !== undefined && gameMode !== null
   const isMyTurn = socket.id === turnPlayer
@@ -168,12 +167,18 @@ const App: React.FC = () => {
     }
   }, [])
 
-  const startDrawing = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  const startDrawing = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isMyTurn) return
 
-    const { offsetX, offsetY } = event.nativeEvent
-    setLastX(offsetX)
-    setLastY(offsetY)
+    const { pageX, pageY, pointerId } = event
+    const canvas = canvasRef.current
+    if (!canvas) {
+      console.error(NO_CANVAS_ERROR)
+      return
+    }
+    const rect = canvas.getBoundingClientRect()
+    const relativeX = pageX - rect.left
+    const relativeY = pageY - rect.top
 
     const context = contextRef.current
     if (!context) {
@@ -184,8 +189,15 @@ const App: React.FC = () => {
     setIsDrawing(true)
 
     context.beginPath()
-    context.lineTo(offsetX, offsetY)
+    context.moveTo(relativeX, relativeY)
+    context.lineTo(relativeX, relativeY)
     context.stroke()
+    setOngoingPointer({
+      [pointerId]: {
+        relativeX,
+        relativeY,
+      },
+    })
 
     socket?.emit(
       SOCKET_EVENTS_OUTBOUND.DRAW,
@@ -193,8 +205,16 @@ const App: React.FC = () => {
     )
   }
 
-  const draw = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  const draw = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return
+
+    const pointer = ongoingPointer?.[event.pointerId]
+    if (!pointer) {
+      console.error(
+        `Could not find pointer for ${event.type} pointer id ${event.pointerId}`
+      )
+      return
+    }
 
     const context = contextRef.current
     if (!context) {
@@ -202,40 +222,40 @@ const App: React.FC = () => {
       return
     }
 
-    const { offsetX, offsetY } = event.nativeEvent
-    context.lineTo(offsetX, offsetY)
+    const { pageX, pageY } = event
+    const canvas = canvasRef.current
+    if (!canvas) {
+      console.error(NO_CANVAS_ERROR)
+      return
+    }
+    const rect = canvas.getBoundingClientRect()
+    const relativeX = pageX - rect.left
+    const relativeY = pageY - rect.top
+
+    context.beginPath()
+    context.moveTo(pointer.relativeX, pointer.relativeY)
+    context.lineTo(relativeX, relativeY)
     context.stroke()
 
     if (gameMode === GameMode.LineLengthLimit) {
       if (
-        lastX === undefined ||
-        lastX === null ||
-        lastY === undefined ||
-        lastY === null
-      ) {
-        throw Error("lastX or lastY is undefined")
-      }
-
-      if (
         lineLengthLimit !== undefined &&
         currentLineLength > lineLengthLimit
       ) {
-        stopDrawing()
+        stopDrawing(event)
         setCurrentLineLength(0)
 
         return
       }
 
       const additionalLength = distanceBetweenTwoPoints({
-        x1: lastX,
-        y1: lastY,
-        x2: offsetX,
-        y2: offsetY,
+        x1: pointer.relativeX,
+        y1: pointer.relativeY,
+        x2: relativeX,
+        y2: relativeY,
       })
 
       setCurrentLineLength((prev) => prev + additionalLength)
-      setLastX(offsetX)
-      setLastY(offsetY)
 
       socket?.emit(
         SOCKET_EVENTS_OUTBOUND.DRAW,
@@ -249,10 +269,25 @@ const App: React.FC = () => {
     } else {
       throw Error(`Invalid Game Mode '${gameMode}'`)
     }
+
+    setOngoingPointer({
+      [event.pointerId]: {
+        relativeX: relativeX,
+        relativeY: relativeY,
+      },
+    })
   }
 
-  const stopDrawing = () => {
+  const stopDrawing = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return
+
+    const pointer = ongoingPointer?.[event.pointerId]
+    if (!pointer) {
+      console.error(
+        `Could not find pointer for ${event.type} pointer id ${event.pointerId}`
+      )
+      return
+    }
 
     setIsDrawing(false)
 
@@ -285,10 +320,10 @@ const App: React.FC = () => {
           </div>
           <canvas
             ref={canvasRef}
-            onMouseDown={startDrawing}
-            onMouseMove={draw}
-            onMouseUp={stopDrawing}
-            onMouseLeave={stopDrawing}
+            onPointerDown={startDrawing}
+            onPointerMove={draw}
+            onPointerUp={stopDrawing}
+            onPointerLeave={stopDrawing}
             className="drawing-canvas"
           />
           <button type="button" onClick={clearCanvas} className="clear-button">
