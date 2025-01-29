@@ -310,6 +310,7 @@ const App: React.FC = () => {
 
   return (
     <div className="drawing-container">
+      <h1>Draw Freely</h1>
       {shouldShowCanvas ? (
         <>
           <div>You've selected the '{gameMode}' game mode.</div>
@@ -332,12 +333,29 @@ const App: React.FC = () => {
         </>
       ) : (
         <>
-          <button onClick={() => selectGameMode(GameMode.OneLine)}>
-            One Line
-          </button>
-          <button onClick={() => selectGameMode(GameMode.LineLengthLimit)}>
-            Line length Limit
-          </button>
+          {(Object.keys(GameMode) as Array<keyof typeof GameMode>).map(
+            (enumKey) => {
+              return (
+                <button onClick={() => selectGameMode(GameMode[enumKey])}>
+                  {GameMode[enumKey]}
+                </button>
+              )
+            }
+          )}
+        <div className="about-content">
+          <h3>About</h3>
+          <p>
+            Draw Freely is a free online multiplayer drawing game designed to
+            encourage mindfulness and creativity.
+          </p>
+          <p>
+            Choose your game mode and draw something with someone else or just
+            by yourself. You don't compete against each other, you just draw things for fun!
+          </p>
+          <aside>
+            Note, this game is still a work in progress!
+          </aside>
+        </div>
         </>
       )}
     </div>

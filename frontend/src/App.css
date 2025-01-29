@@ -26,3 +26,28 @@
 .clear-button:hover {
   background-color: #dc2626;
 }
+
+.about-content {
+  text-align: left;
+  max-width: 300px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.about-content h2 {
+  margin-bottom: 8px;
+}
+
+.about-content p {
+  line-height: 1.6;
+  font-weight: 400;
+  margin: 1rem 0;
+  text-align: left;
+}
+
+.about-content aside {
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 1.5rem;
+  text-align: left;
+}
