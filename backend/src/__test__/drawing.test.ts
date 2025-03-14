@@ -44,8 +44,17 @@ describe("Drawing class", () => {
 		
 		})
 		
-		// for `createFrom()`
-		test('should create a drawing canvas with the correct values and reject the malformed ones', () => {
+		test.each([
+				{ testName: "valid buffer, should return true", buffer: Buffer.alloc(totalArraySize, 0), expected: true },
+				{ testName: "buffer is too small, should return false", buffer: Buffer.alloc(totalArraySize - 1, 0), expected: false },
+				{ testName: "buffer is too large, should return false", buffer: Buffer.alloc(totalArraySize + 1, 0), expected: false },
+				{ testName: "invalid buffer, should return false", buffer: {} as any, expected: false },
+				{ testName: "invalid value of buffer's element, should return false", buffer: Buffer.alloc(totalArraySize, 300), expected: false },
+		])("`canCreate()`: $testName", ({ buffer, expected }) => {
+				expect(Drawing.canCreate(buffer)).toBe(expected)
+		})
+		
+		test("should create a drawing canvas with the correct values and reject the malformed ones", () => {
 				const validDrawingBuffer = Drawing.createEmpty().getValue()
 				const invalidDrawingBuffer = Buffer.alloc(totalArraySize - 1, 0)
 				
