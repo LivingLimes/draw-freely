@@ -19,7 +19,7 @@ describe("test Drawing class", () => {
 				})
 				
 				test("value of the buffer should be empty", () => {
-						expect(buffer.every(el => el >= 0)).toBe(true)
+						expect(buffer.every(el => el === 0)).toBe(true)
 				})
 		})
 		
@@ -35,11 +35,20 @@ describe("test Drawing class", () => {
 		})
 		
 		describe("test `createFrom()`", () => {
-				const validDrawingBuffer = Drawing.createEmpty().getValue()
+				const emptyDrawingBuffer = Buffer.alloc(totalArraySize)
+				const nonEmptyDrawingBuffer = Buffer.alloc(totalArraySize, 100)
 				const invalidDrawingBuffer = Buffer.alloc(totalArraySize - 1, 0)
 				
-				test("should create a drawing canvas with the correct values", () => {
-						expect(Drawing.createFrom(validDrawingBuffer)).toBeInstanceOf(Drawing)
+				test("should create an empty drawing ", () => {
+						const drawing = Drawing.createFrom(emptyDrawingBuffer)
+						expect(drawing).toBeInstanceOf(Drawing)
+						expect(drawing.getValue().every(el => el === 0)).toBe(true)
+				})
+				
+				test("should create a drawing with elements that have valid values (0-255)", () => {
+						const drawing = Drawing.createFrom(nonEmptyDrawingBuffer)
+						expect(drawing).toBeInstanceOf(Drawing)
+						expect(drawing.getValue().every(el => el >= 0 && el <= 255)).toBe(true)
 				})
 				
 				test("should reject the malformed drawing (size is too small)", () => {
