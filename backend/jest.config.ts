@@ -1,5 +1,5 @@
 /**
- * Check `README.md` for a brief explanation on the configurations set below
+ * Check https://github.com/LivingLimes/draw-freely/pull/18#issuecomment-2731114582 for a brief explanation on the configurations set below
  *
  * For a detailed explanation regarding each configuration property, visit:
  * https://jestjs.io/docs/configuration

@@ -15,8 +15,7 @@
     "allowUnreachableCode": false,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "types": ["node", "jest"],
-    
+
     // Better development experience
     "incremental": true,
     "baseUrl": ".",
