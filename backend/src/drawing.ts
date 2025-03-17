@@ -1,4 +1,4 @@
-export class Drawing {
+export default class Drawing {
 		static readonly #canvasHeight = 300
 		static readonly #canvasWidth = 300
 		// In the canvas, each pixel is represented with 4 values: R, G, B and A.

@@ -59,7 +59,7 @@ const config: Config = {
 		// The root directory that Jest should scan for tests and modules within
 		rootDir: "src",
 		transform: {
-				"\\.[jt]sx?$": "babel-jest"
+				"\\.[jt]sx?$": "ts-jest"
 		},
 		verbose: true,
 		watchman: true,
