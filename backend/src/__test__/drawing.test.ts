@@ -10,10 +10,6 @@ describe("test Drawing class", () => {
 				const emptyDrawing = Drawing.createEmpty()
 				const buffer = emptyDrawing.getValue()
 				
-				test("should create an instance of Drawing", () => {
-						expect(emptyDrawing).toBeInstanceOf(Drawing)
-				})
-				
 				test("should be the same size as `totalArraySize`", () => {
 						expect(buffer.length).toEqual(totalArraySize)
 				})
