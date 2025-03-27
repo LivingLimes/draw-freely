@@ -30,6 +30,7 @@
     "@types/jest": "^29.5.14",
     "@types/react": "^19.0.3",
     "@types/react-dom": "^19.0.2",
+    "socket.io": "^4.8.1",
     "typescript": "^3.2.1"
   }
 }
