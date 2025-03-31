@@ -1,7 +1,7 @@
-import React, { RefObject, useState } from "react"
-import type { Pointer } from "@/types"
-import { socket } from "../socket"
-import { distanceBetweenTwoPoints, GameMode, NO_CANVAS_ERROR, NO_CONTEXT_ERROR, SOCKET_EVENTS_OUTBOUND } from "../utils"
+import React, { RefObject, useReducer } from "react"
+import { distanceBetweenTwoPoints, GameMode } from "../utils"
+import useCanvas, { NO_CANVAS_ERROR } from "../hooks/useCanvas"
+import { drawingReducer, initialDrawingState } from "../reducers/drawingReducer"
 
 interface DrawingHookProps {
 		canvasRef: RefObject<HTMLCanvasElement | null>
@@ -9,161 +9,145 @@ interface DrawingHookProps {
 				width: number
 				height: number
 		}
+		canvasApi: ReturnType<typeof useCanvas>,
 		contextRef: RefObject<CanvasRenderingContext2D | undefined>
 		gameMode: GameMode | undefined | null
-		turnPlayer: string | undefined
+		lineLengthLimit: number | undefined
+		isMyTurn: boolean
+		// Callback for socket events
+		onDrawingUpdate?: (imageData: Uint8ClampedArray) => void
+		onEndTurn?: () => void
 }
 
-function useDrawing({ canvasRef, canvasDimension, contextRef, gameMode, turnPlayer }: DrawingHookProps) {
-		const [isDrawing, setIsDrawing] = useState(false)
-		const [lineLengthLimit, setLineLengthLimit] = useState<number | undefined>(undefined)
-		const [currentLineLength, setCurrentLineLength] = useState<number>(0)
-		const [ongoingPointer, setOngoingPointer] = useState<Pointer | undefined | null>(undefined)
-		const isMyTurn = socket.id === turnPlayer
+function useDrawing({ canvasRef, canvasDimension, canvasApi, contextRef, gameMode, isMyTurn, lineLengthLimit, onDrawingUpdate, onEndTurn }: DrawingHookProps) {
+		const [state, dispatch] = useReducer(drawingReducer, initialDrawingState)
 		
 		const startDrawing = (event: React.PointerEvent<HTMLCanvasElement>) => {
 				if (!isMyTurn) return
 				
-				const { pageX, pageY, pointerId } = event
 				const canvas = canvasRef.current
 				if (!canvas) {
 						console.error(NO_CANVAS_ERROR)
 						return
 				}
+				
 				const rect = canvas.getBoundingClientRect()
-				const relativeX = pageX - rect.left
-				const relativeY = pageY - rect.top
+				const relativeX = event.pageX - rect.left
+				const relativeY = event.pageY - rect.top
 				
-				const context = contextRef.current
-				if (!context) {
-						console.error(NO_CONTEXT_ERROR)
-						return
-				}
-				
-				setIsDrawing(true)
-				
-				context.beginPath()
-				context.moveTo(relativeX, relativeY)
-				context.lineTo(relativeX, relativeY)
-				context.stroke()
-				setOngoingPointer({
-						[pointerId]: {
-								relativeX,
-								relativeY,
-						},
+				canvasApi.drawLine({
+						startX: relativeX,
+						startY: relativeY,
+						endX: relativeX,
+						endY: relativeY
 				})
 				
-				socket?.emit(
-						SOCKET_EVENTS_OUTBOUND.DRAW,
-						context.getImageData(0, 0, canvasDimension.width, canvasDimension.height).data,
-				)
+				dispatch({
+						type: "START_DRAWING",
+						payload: {
+								pointerId: event.pointerId,
+								x: relativeX,
+								y: relativeY
+						}
+				})
+				
+				if (contextRef.current && onDrawingUpdate) {
+						const imageData = contextRef.current.getImageData(0, 0, canvasDimension.width, canvasDimension.height).data
+						onDrawingUpdate(imageData)
+				}
 		}
 		
 		const draw = (event: React.PointerEvent<HTMLCanvasElement>) => {
-				if (!isDrawing) return
+				if (!state.isDrawing || !isMyTurn) return
 				
-				const pointer = ongoingPointer?.[event.pointerId]
+				
+				const pointer = state.ongoingPointer?.[event.pointerId]
 				if (!pointer) {
-						console.error(
-								`Could not find pointer for ${event.type} pointer id ${event.pointerId}`,
-						)
+						console.error(`Could not find pointer for ${event.type} pointer id ${event.pointerId}`)
 						return
 				}
 				
-				const context = contextRef!.current
-				if (!context) {
-						console.error(NO_CONTEXT_ERROR)
-						return
-				}
-				
-				const { pageX, pageY } = event
-				const canvas = canvasRef!.current
+				const canvas = canvasRef.current
 				if (!canvas) {
 						console.error(NO_CANVAS_ERROR)
 						return
 				}
+				
 				const rect = canvas.getBoundingClientRect()
-				const relativeX = pageX - rect.left
-				const relativeY = pageY - rect.top
+				const relativeX = event.pageX - rect.left
+				const relativeY = event.pageY - rect.top
 				
-				context.beginPath()
-				context.moveTo(pointer.relativeX, pointer.relativeY)
-				context.lineTo(relativeX, relativeY)
-				context.stroke()
-				
-				if (gameMode === GameMode.LineLengthLimit) {
-						if (
-								lineLengthLimit !== undefined &&
-								currentLineLength > lineLengthLimit
-						) {
-								stopDrawing(event)
-								setCurrentLineLength(0)
-								
-								return
-						}
-						
-						const additionalLength = distanceBetweenTwoPoints({
-								x1: pointer.relativeX,
-								y1: pointer.relativeY,
-								x2: relativeX,
-								y2: relativeY,
-						})
-						
-						setCurrentLineLength((prev) => prev + additionalLength)
-						
-						socket?.emit(
-								SOCKET_EVENTS_OUTBOUND.DRAW,
-								context.getImageData(0, 0, canvasDimension.width, canvasDimension.height).data,
-						)
-				}
-				else if (gameMode === GameMode.OneLine) {
-						socket?.emit(
-								SOCKET_EVENTS_OUTBOUND.DRAW,
-								context.getImageData(0, 0, canvasDimension.width, canvasDimension.height).data,
-						)
-				}
-				else {
-						throw Error(`Invalid Game Mode '${gameMode}'`)
-				}
-				
-				setOngoingPointer({
-						[event.pointerId]: {
-								relativeX: relativeX,
-								relativeY: relativeY,
-						},
+				const additionalLength = distanceBetweenTwoPoints({
+						x1: pointer.relativeX,
+						y1: pointer.relativeY,
+						x2: relativeX,
+						y2: relativeY
 				})
+				
+				canvasApi.drawLine({
+						startX: relativeX,
+						startY: relativeY,
+						endX: relativeX,
+						endY: relativeY
+				})
+				
+				dispatch({
+						type: "ON_DRAWING",
+						payload: {
+								pointerId: event.pointerId,
+								x: relativeX,
+								y: relativeY,
+								additionalLength
+						}
+				})
+				
+				switch ( gameMode ) {
+						case "One Line":
+								// TODO: Add 10 second timer
+								break
+						case "Line Length Limit":
+								if (lineLengthLimit && state.currentLineLength + additionalLength > lineLengthLimit) {
+										stopDrawing(event)
+										dispatch({
+												type: "RESET_LINE_LENGTH"
+										})
+										if (onEndTurn) {
+												onEndTurn()
+										}
+										return
+								}
+								break
+						default:
+								console.error(`Invalid Game Mode '${gameMode}'`)
+				}
+				
+				if (contextRef.current && onDrawingUpdate) {
+						const imageData = contextRef.current.getImageData(0, 0, canvasDimension.width, canvasDimension.height).data
+						const hasContent = Array.from(imageData).some(pixel =>  pixel > 0)
+						console.log(`Sending drawing data, hsa content: ${hasContent}`)
+						onDrawingUpdate(imageData)
+				}
 		}
 		
 		const stopDrawing = (event: React.PointerEvent<HTMLCanvasElement>) => {
-				if (!isDrawing) return
+				if (!state.isDrawing) return
 				
-				const pointer = ongoingPointer?.[event.pointerId]
-				if (!pointer) {
-						console.error(
-								`Could not find pointer for ${event.type} pointer id ${event.pointerId}`,
-						)
-						return
+				dispatch({
+						type: "STOP_DRAWING",
+						payload: {
+								pointerId: event.pointerId
+						}
+				})
+				
+				if (gameMode === "One Line" && onEndTurn) {
+						onEndTurn()
 				}
-				
-				setIsDrawing(false)
-				
-				socket.emit(SOCKET_EVENTS_OUTBOUND.END_TURN)
-		}
-		
-		const clearCanvas = () => {
-				if (!contextRef.current) return
-				
-				contextRef.current.clearRect(0, 0, canvasDimension.width, canvasDimension.height)
-				
-				socket?.emit(SOCKET_EVENTS_OUTBOUND.CLEAR_CANVAS)
 		}
 		
 		return {
 				startDrawing,
 				draw,
 				stopDrawing,
-				clearCanvas,
-				setLineLengthLimit
 		}
 }
 

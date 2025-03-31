@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from "react"
 import { socket } from "./socket"
-import { GameMode, NO_CANVAS_ERROR, NO_CONTEXT_ERROR, SOCKET_EVENTS_INBOUND, SOCKET_EVENTS_OUTBOUND } from "./utils"
+import { GameMode } from "./utils"
 import "./App.css"
 import useDrawing from "./hooks/useDrawing"
+import useSocketEvents from "./hooks/useSocketEvents"
+import useCanvas from "./hooks/useCanvas"
 
 const CANVAS_HEIGHT = 300
 const CANVAS_WIDTH = 300
@@ -16,129 +18,115 @@ const App: React.FC = () => {
 				undefined,
 		)
 		const [turnPlayer, setTurnPlayer] = useState<string | undefined>(undefined)
-		const isMyTurn = socket.id === turnPlayer
+		const [lineLengthLimit, setLineLengthLimit] = useState<number | undefined>(130)
 		
+		const isMyTurn = socket.id === turnPlayer
 		const shouldShowCanvas = gameMode !== undefined && gameMode !== null
 		
-		const canvasDimension = {
-				width: CANVAS_WIDTH,
-				height: CANVAS_HEIGHT,
+		// Initialise Canvas API (receiver)
+		const canvasApi = useCanvas({
+				canvasRef,
+				contextRef,
+				canvasDimension: {
+						width: CANVAS_WIDTH,
+						height: CANVAS_HEIGHT,
+				},
+				contextConfigs: { lineCap: "round", lineWidth: 2, strokeStyle: "black" },
+				shouldInitCanvas: gameMode !== undefined && gameMode !== null,
+		})
+		
+		// Initialise socket events (invoker)
+		const { sendDrawing, sendEndTurn, sendGameMode, sendClearCanvas } = useSocketEvents({
+				canvasApi,
+				onTurnChanged: setTurnPlayer,
+				onGameModeChanged: setGameMode,
+				onLineLengthLimitChanged: setLineLengthLimit,
+		})
+		
+		// Initialise drawing functions
+		const { startDrawing, draw, stopDrawing } = useDrawing({
+				canvasRef,
+				contextRef,
+				gameMode,
+				lineLengthLimit,
+				isMyTurn,
+				canvasDimension: {
+						width: CANVAS_WIDTH,
+						height: CANVAS_HEIGHT,
+				},
+				canvasApi: canvasApi,
+				onDrawingUpdate: sendDrawing,
+				onEndTurn: sendEndTurn,
+		})
+
+		// Debug if the context can be drawn on the canvas
+		if (contextRef.current && canvasRef.current) {
+				console.log("Drawing test pattern");
+				const ctx = contextRef.current;
+				
+				// Clear canvas
+				ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+				
+				// Draw a simple shape
+				ctx.fillStyle = 'blue';
+				ctx.fillRect(10, 10, 50, 50);
+				
+				// Draw a line
+				ctx.beginPath();
+				ctx.moveTo(100, 100);
+				ctx.lineTo(200, 200);
+				ctx.stroke();
 		}
 		
+		// Debug: socket connection
 		useEffect(() => {
-				if (!shouldShowCanvas) return
-				
-				const canvas = canvasRef.current
-				if (!canvas) {
-						console.error(NO_CANVAS_ERROR)
-						return
-				}
-				
-				canvas.width = CANVAS_HEIGHT
-				canvas.height = CANVAS_WIDTH
-				
-				const context = canvas.getContext("2d")
-				if (!context) {
-						console.error(NO_CONTEXT_ERROR)
-						return
-				}
-				
-				context.lineCap = "round"
-				context.strokeStyle = "black"
-				context.lineWidth = 2
-				contextRef.current = context
-		}, [shouldShowCanvas])
+				console.log("Socket connection status:", {
+						id: socket.id,
+						connected: socket.connected
+				});
+		}, []);
 		
 		useEffect(() => {
-				const onDraw = (drawing: Array<number>) => {
-						const context = contextRef.current
-						if (!context) {
-								console.error(NO_CONTEXT_ERROR)
-								return
-						}
+				// Simple socket test
+				if (socket.connected) {
+						console.log("Testing socket communication");
+						socket.emit("test-event", { message: "Hello server" });
 						
-						console.log("drawing", drawing)
-						context.putImageData(
-								new ImageData(new Uint8ClampedArray(drawing), 300, 300),
-								0,
-								0,
-						)
+						const handleTestResponse = (data: any) => {
+								console.log("Received test response from server:", data);
+						};
+						
+						socket.on("test-response", handleTestResponse);
+						
+						return () => {
+								socket.off("test-response", handleTestResponse);
+						};
+				} else {
+						console.error("socket is disconnected")
+						return
 				}
-				
-				const onInitialLoad = ({
-						drawing,
-						lineLengthLimit: lengthLimit,
-						gameMode: mode,
-				}: {
-						drawing: Array<number>
-						lineLengthLimit: number
-						gameMode: GameMode
-				}) => {
-						console.log({ drawing, lengthLimit, gameMode }, "initial data")
-						
-						// setLineLengthLimit(150)
-						setGameMode(mode)
-						
-						const context = contextRef.current
-						if (!context) {
-								console.error(NO_CONTEXT_ERROR)
-								return
-						}
-						
-						context.putImageData(
-								new ImageData(new Uint8ClampedArray(drawing), 300, 300),
-								0,
-								0,
-						)
-				}
-				
-				const onUpdateTurn = ({ turnPlayer }: { turnPlayer: string }) => {
-						setTurnPlayer(turnPlayer)
-				}
-				
-				const clearCanvas = ({ mode }: { mode: GameMode }) => {
-						const canvas = canvasRef.current
-						if (!canvas) {
-								console.error(NO_CANVAS_ERROR)
-								return
-						}
-						
-						const context = contextRef.current
-						if (!context) {
-								console.error(NO_CONTEXT_ERROR)
-								return
-						}
-						
-						context.clearRect(0, 0, canvas.width, canvas.height)
-						
-						setGameMode(mode)
-				}
-				
-				const selectedGameMode = (mode: GameMode) => {
-						setGameMode(mode)
-				}
-				
-				socket.on(SOCKET_EVENTS_INBOUND.DRAW, onDraw)
-				socket.on(SOCKET_EVENTS_INBOUND.INITIAL_DATA, onInitialLoad)
-				socket.on(SOCKET_EVENTS_INBOUND.UPDATE_TURN, onUpdateTurn)
-				socket.on(SOCKET_EVENTS_INBOUND.CLEAR_CANVAS, clearCanvas)
-				socket.on(SOCKET_EVENTS_INBOUND.SELECTED_GAME_MODE, selectedGameMode)
-				
-				return () => {
-						socket.off(SOCKET_EVENTS_INBOUND.DRAW, onDraw)
-						socket.off(SOCKET_EVENTS_INBOUND.INITIAL_DATA, onInitialLoad)
-						socket.off(SOCKET_EVENTS_INBOUND.UPDATE_TURN, onUpdateTurn)
-						socket.off(SOCKET_EVENTS_INBOUND.CLEAR_CANVAS, clearCanvas)
-						socket.off(SOCKET_EVENTS_INBOUND.SELECTED_GAME_MODE, selectedGameMode)
-				}
-		}, [])
+		}, [socket.connected]);
 		
-		const { startDrawing, draw, stopDrawing, clearCanvas } = useDrawing({ canvasRef, canvasDimension, contextRef, gameMode, turnPlayer })
+		useEffect(() => {
+				if (gameMode !== undefined && gameMode !== null) {
+						// Make sure the canvas has had time to render
+						setTimeout(() => {
+								const result = canvasApi.initCanvas()
+								if (!result) {
+										console.error("Failed to initialize canvas after game mode selection")
+								}
+						}, 0)
+				}
+		}, [gameMode, canvasApi])
 		
 		const selectGameMode = (mode: GameMode) => {
 				setGameMode(mode)
-				
-				socket?.emit(SOCKET_EVENTS_OUTBOUND.SELECT_GAME_MODE, mode)
+				sendGameMode()
+		}
+		
+		const clearCanvas = () => {
+				canvasApi.clearCanvas()
+				sendClearCanvas()
 		}
 		
 		return (
@@ -169,7 +157,9 @@ const App: React.FC = () => {
 										{( Object.keys(GameMode) as Array<keyof typeof GameMode> ).map(
 												(enumKey) => {
 														return (
-																<button onClick={() => selectGameMode(GameMode[enumKey])}>
+																<button
+																		key={GameMode[enumKey]}
+																		onClick={() => selectGameMode(GameMode[enumKey])}>
 																		{GameMode[enumKey]}
 																</button>
 														)
