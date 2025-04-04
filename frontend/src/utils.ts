@@ -10,5 +10,5 @@ export function distanceBetweenTwoPoints({
     x2: number
     y2: number
 }): number {
-    return Math.hypot(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2))
+    return Math.hypot((x1 - x2), (y1 - y2))
 }
