@@ -13,27 +13,27 @@ const httpServer = createServer((req, res) => {
 })
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL ?? "http://localhost:3000"
-  }
+    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+  },
 })
 
 const SOCKET_EVENTS_OUTBOUND = {
-  DRAW: "draw",
-  CONNECT: "connect",
-  INITIAL_DATA: "initial-data",
-  UPDATE_TURN: "update-turn",
-  CLEAR_CANVAS: "clear-canvas",
-  SELECTED_GAME_MODE: "selected-game-mode",
+  DRAW: 'draw',
+  CONNECT: 'connect',
+  INITIAL_DATA: 'initial-data',
+  UPDATE_TURN: 'update-turn',
+  CLEAR_CANVAS: 'clear-canvas',
+  SELECTED_GAME_MODE: 'selected-game-mode',
 } as const
 
 const SOCKET_EVENTS_INBOUND = {
-  CONNECTION: "connection",
-  DISCONNECT: "disconnect",
+  CONNECTION: 'connection',
+  DISCONNECT: 'disconnect',
 
-  DRAW: "draw",
-  END_TURN: "end-turn",
-  CLEAR_CANVAS: "clear-canvas",
-  SELECT_GAME_MODE: "select-game-mode",
+  DRAW: 'draw',
+  END_TURN: 'end-turn',
+  CLEAR_CANVAS: 'clear-canvas',
+  SELECT_GAME_MODE: 'select-game-mode',
 } as const
 
 enum GameMode {
@@ -48,7 +48,7 @@ const lineLengthLimit: number = 150
 let turnPlayer: string | undefined | null = undefined
 
 io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
-  console.log('User connected:', socket.id);
+  console.log('User connected:', socket.id)
 
   players.push(socket.id)
 
@@ -57,10 +57,14 @@ io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
   }
 
   socket.emit(SOCKET_EVENTS_OUTBOUND.UPDATE_TURN, {
-    turnPlayer
+    turnPlayer,
   })
 
-  socket.emit(SOCKET_EVENTS_OUTBOUND.INITIAL_DATA, { lineLengthLimit, drawing: drawing.getValue(), gameMode })
+  socket.emit(SOCKET_EVENTS_OUTBOUND.INITIAL_DATA, {
+    lineLengthLimit,
+    drawing: drawing.getValue(),
+    gameMode,
+  })
 
   socket.on(SOCKET_EVENTS_INBOUND.DRAW, (drawingAsArray) => {
     if (turnPlayer !== socket.id || !players.includes(socket.id)) {
@@ -90,7 +94,7 @@ io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
     gameMode = null
 
     socket.broadcast.emit(SOCKET_EVENTS_OUTBOUND.CLEAR_CANVAS, {
-      gameMode
+      gameMode,
     })
   })
 
@@ -103,7 +107,7 @@ io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
     turnPlayer = nextPlayer ?? players[0] ?? null
 
     io.emit(SOCKET_EVENTS_OUTBOUND.UPDATE_TURN, {
-      turnPlayer
+      turnPlayer,
     })
   })
 
@@ -117,7 +121,7 @@ io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
     }
 
     // Turn player and viewer disconnect
-    players = players.filter(p => p !== socket.id)
+    players = players.filter((p) => p !== socket.id)
   })
 })
 
