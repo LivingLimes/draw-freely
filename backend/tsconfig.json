@@ -15,7 +15,7 @@
     "allowUnreachableCode": false,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    
+
     // Better development experience
     "incremental": true,
     "baseUrl": ".",

@@ -1,5 +1,6 @@
 import { createServer } from 'http'
 import { Server } from 'socket.io'
+import Drawing from '@/drawing'
 
 const PORT = 3001
 
@@ -12,79 +13,32 @@ const httpServer = createServer((req, res) => {
 })
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL ?? "http://localhost:3000"
-  }
+    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+  },
 })
 
 const SOCKET_EVENTS_OUTBOUND = {
-  DRAW: "draw",
-  CONNECT: "connect",
-  INITIAL_DATA: "initial-data",
-  UPDATE_TURN: "update-turn",
-  CLEAR_CANVAS: "clear-canvas",
-  SELECTED_GAME_MODE: "selected-game-mode",
+  DRAW: 'draw',
+  CONNECT: 'connect',
+  INITIAL_DATA: 'initial-data',
+  UPDATE_TURN: 'update-turn',
+  CLEAR_CANVAS: 'clear-canvas',
+  SELECTED_GAME_MODE: 'selected-game-mode',
 } as const
 
 const SOCKET_EVENTS_INBOUND = {
-  CONNECTION: "connection",
-  DISCONNECT: "disconnect",
+  CONNECTION: 'connection',
+  DISCONNECT: 'disconnect',
 
-  DRAW: "draw",
-  END_TURN: "end-turn",
-  CLEAR_CANVAS: "clear-canvas",
-  SELECT_GAME_MODE: "select-game-mode",
+  DRAW: 'draw',
+  END_TURN: 'end-turn',
+  CLEAR_CANVAS: 'clear-canvas',
+  SELECT_GAME_MODE: 'select-game-mode',
 } as const
 
 enum GameMode {
-  OneLine = "One Line",
-  LineLengthLimit = "Line Length Limit",
-}
-
-class Drawing {
-  static readonly #canvasHeight = 300
-  static readonly #canvasWidth = 300
-  // In the canvas, each pixel is represented with 4 values: R, G, B and A.
-  static readonly #pixelSize = 4
-  static readonly #totalArraySize = Drawing.#canvasHeight * Drawing.#canvasWidth * Drawing.#pixelSize
-
-  private value: Buffer
-
-  private constructor(_value: Buffer) {
-    this.value = _value
-  }
-
-  public getValue(): Readonly<Buffer> {
-    return this.value
-  }
-
-  public static canCreate(drawing: Buffer) {
-    if (!Buffer.isBuffer(drawing)) {
-      return false
-    }
-
-    if (drawing.length !== Drawing.#totalArraySize) {
-      return false
-    }
-
-    // We can validate this more strictly by enforcing all values to be black or white, but this is a bit more flexible.
-    if (!drawing.every(el => el >= 0 && el <= 255 && Number.isFinite(el))) {
-      return false
-    }
-
-    return true
-  }
-
-  public static createEmpty(): Drawing {
-    return new Drawing(Buffer.alloc(Drawing.#totalArraySize))
-  }
-
-  public static createFrom(drawing: Buffer): Drawing {
-    if (!this.canCreate(drawing)) {
-      throw Error('Cannot create drawing as it is malformed')
-    }
-
-    return new Drawing(drawing)
-  }
+  OneLine = 'One Line',
+  LineLengthLimit = 'Line Length Limit',
 }
 
 let drawing = Drawing.createEmpty()
@@ -94,7 +48,7 @@ const lineLengthLimit: number = 150
 let turnPlayer: string | undefined | null = undefined
 
 io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
-  console.log('User connected:', socket.id);
+  console.log('User connected:', socket.id)
 
   players.push(socket.id)
 
@@ -103,10 +57,14 @@ io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
   }
 
   socket.emit(SOCKET_EVENTS_OUTBOUND.UPDATE_TURN, {
-    turnPlayer
+    turnPlayer,
   })
 
-  socket.emit(SOCKET_EVENTS_OUTBOUND.INITIAL_DATA, { lineLengthLimit, drawing: drawing.getValue(), gameMode })
+  socket.emit(SOCKET_EVENTS_OUTBOUND.INITIAL_DATA, {
+    lineLengthLimit,
+    drawing: drawing.getValue(),
+    gameMode,
+  })
 
   socket.on(SOCKET_EVENTS_INBOUND.DRAW, (drawingAsArray) => {
     if (turnPlayer !== socket.id || !players.includes(socket.id)) {
@@ -136,7 +94,7 @@ io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
     gameMode = null
 
     socket.broadcast.emit(SOCKET_EVENTS_OUTBOUND.CLEAR_CANVAS, {
-      gameMode
+      gameMode,
     })
   })
 
@@ -149,7 +107,7 @@ io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
     turnPlayer = nextPlayer ?? players[0] ?? null
 
     io.emit(SOCKET_EVENTS_OUTBOUND.UPDATE_TURN, {
-      turnPlayer
+      turnPlayer,
     })
   })
 
@@ -163,7 +121,7 @@ io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
     }
 
     // Turn player and viewer disconnect
-    players = players.filter(p => p !== socket.id)
+    players = players.filter((p) => p !== socket.id)
   })
 })
 
