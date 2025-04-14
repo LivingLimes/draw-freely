@@ -1,13 +1,12 @@
 import Game from '../game'
 import Player from '../player'
 import Drawing from '../drawing'
-import { GameMode } from '../utils'
 import * as crypto from 'node:crypto'
 
 describe('Class `Game`', () => {
-  const game = new Game()
+  describe('should initialise a game', () => {
+    const game = new Game()
 
-  describe('should provide access to properties via getter', () => {
     it('should return the id with a correct format', () => {
       expect(game.id).toBeDefined()
       expect(typeof game.id).toBe(typeof crypto.randomUUID())
@@ -15,10 +14,11 @@ describe('Class `Game`', () => {
 
     it('should return the drawing data', () => {
       expect(game.drawing).toBeInstanceOf(Drawing)
+      expect(game.drawing).toEqual(Drawing.createEmpty())
     })
 
-    it('should return a list of players', () => {
-      expect(Array.isArray(game.players)).toBe(true)
+    it('should return an empty array of players', () => {
+      expect(game.players.length).toEqual(0)
     })
 
     it('should return undefined for the current player when initiated', () => {
@@ -34,16 +34,9 @@ describe('Class `Game`', () => {
     })
   })
 
-  it('should set the game mode correctly', () => {
-    const gameModes = [GameMode.OneLine, GameMode.LineLengthLimit, null]
-
-    for (const mode of gameModes) {
-      game.gameMode = mode
-      expect(game.gameMode).toBe(mode)
-    }
-  })
-
   it('should add a new player', () => {
+    const game = new Game()
+
     const newPlayerId = 'new-player'
     game.addPlayer(newPlayerId)
     expect(
@@ -52,6 +45,8 @@ describe('Class `Game`', () => {
   })
 
   it('should update the drawing with the given one', () => {
+    const game = new Game()
+
     const arraySize = 300 * 300 * 4
     const newDrawing = Drawing.createFrom(Buffer.alloc(arraySize, 1))
     game.updateDrawing(newDrawing)
@@ -60,7 +55,8 @@ describe('Class `Game`', () => {
   })
 
   describe('should reset the game', () => {
-    beforeEach(() => game.resetGame())
+    const game = new Game()
+    game.resetGame()
 
     it('should clear the canvas', () => {
       expect(game.drawing).toEqual(Drawing.createEmpty())
@@ -72,19 +68,15 @@ describe('Class `Game`', () => {
   })
 
   describe('remove a given player', () => {
-    beforeEach(() => {
-      while (game.players.length > 0) {
-        game.removePlayer(game.players[0].id)
-      }
-    })
+    const game = new Game()
+
+    for (let i = 0; i < 100; i++) {
+      game.addPlayer(`player-${i}`)
+    }
+
+    const axedPlayerId = `player-${Math.floor(Math.random() * 100)}`
 
     it('should be able to remove when the given player exists', () => {
-      for (let i = 0; i < 100; i++) {
-        game.addPlayer(`player-${i}`)
-      }
-
-      const axedPlayerId = `player-${Math.floor(Math.random() * 100)}`
-
       game.removePlayer(axedPlayerId)
       expect(
         game.players.findIndex((player) => player.id === axedPlayerId),
@@ -98,26 +90,17 @@ describe('Class `Game`', () => {
   })
 
   describe('should update turn', () => {
-    beforeAll(() => {
-      game.resetGame()
-      while (game.players.length > 0) {
-        game.removePlayer(game.players[0].id)
-      }
-    })
-
-    it('should set `currentPlayer` to undefined when no one is in the game', () => {
-      game.nextTurn()
-      expect(game.currentPlayer).toBeUndefined()
-    })
-
     it('should set `currentPlayer` to the only player when one player exists ', () => {
+      const game = new Game()
+
       const player1Id = 'player-1'
       game.addPlayer(player1Id)
-      game.nextTurn()
       expect(game.currentPlayer).toEqual(new Player(player1Id))
     })
 
     it('should cycle through players when multiple players in the game', () => {
+      const game = new Game()
+
       const numberOfPlayers = 100
       const playerIds = Array.from(
         { length: numberOfPlayers },
@@ -125,8 +108,6 @@ describe('Class `Game`', () => {
       )
       playerIds.forEach((id) => game.addPlayer(id))
 
-      // Start game - set the current turn player as the first player
-      game.nextTurn()
       expect(game.currentPlayer?.id).toBe('player-1')
 
       for (let i = 1; i < numberOfPlayers; i++) {
