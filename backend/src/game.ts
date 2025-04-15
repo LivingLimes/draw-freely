@@ -42,8 +42,7 @@ export default class Game implements IGame {
     this.#players.push(new Player(playerId))
 
     if (this.#players.length === 1) {
-      this.#currentTurnPlayer = this.players[0]
-      return
+      this.nextTurn()
     }
   }
 
@@ -54,8 +53,7 @@ export default class Game implements IGame {
 
     if (playerIndex !== -1) {
       if (this.#currentTurnPlayer?.id === playerId) {
-        const nextPlayer = getNextElement(this.#players, this.currentPlayer)
-        this.#currentTurnPlayer = nextPlayer ?? this.#players[0] ?? null
+        this.nextTurn()
       }
       this.#players = this.#players.filter((player) => player.id !== playerId)
     } else {
@@ -73,12 +71,7 @@ export default class Game implements IGame {
   }
 
   public nextTurn() {
-    if (this.#currentTurnPlayer) {
-      this.#currentTurnPlayer = getNextElement(
-        this.#players,
-        this.currentPlayer,
-      )
-      return
-    }
+    const nextPlayer = getNextElement(this.#players, this.currentPlayer)
+    this.#currentTurnPlayer = nextPlayer ?? this.#players[0] ?? null
   }
 }

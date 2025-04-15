@@ -2,6 +2,7 @@ import Game from '../game'
 import Player from '../player'
 import Drawing from '../drawing'
 import * as crypto from 'node:crypto'
+import { getNextElement } from '../utils'
 
 describe('Class `Game`', () => {
   describe('should initialise a game', () => {
@@ -18,7 +19,7 @@ describe('Class `Game`', () => {
     })
 
     it('should return an empty array of players', () => {
-      expect(game.players.length).toEqual(0)
+      expect(game.players).toHaveLength(0)
     })
 
     it('should return undefined for the current player when initiated', () => {
@@ -34,14 +35,25 @@ describe('Class `Game`', () => {
     })
   })
 
-  it('should add a new player', () => {
+  describe('adding a new player', () => {
     const game = new Game()
 
     const newPlayerId = 'new-player'
-    game.addPlayer(newPlayerId)
-    expect(
-      game.players.findIndex((player) => player.id === newPlayerId),
-    ).not.toEqual(-1)
+    const anotherNewPlayerId = 'another-player'
+
+    it('should add a new player', () => {
+      game.addPlayer(newPlayerId)
+      expect(game.players).toContainEqual(new Player(newPlayerId))
+    })
+
+    it('should set the new player as #currentTurnPlayer as there is only one player', () => {
+      expect(game.currentPlayer).toEqual(new Player(newPlayerId))
+    })
+
+    it('should not trigger a turn change when there are more than one player in the game', () => {
+      game.addPlayer(anotherNewPlayerId)
+      expect(game.currentPlayer).not.toEqual(new Player(anotherNewPlayerId))
+    })
   })
 
   it('should update the drawing with the given one', () => {
@@ -74,23 +86,37 @@ describe('Class `Game`', () => {
       game.addPlayer(`player-${i}`)
     }
 
-    const axedPlayerId = `player-${Math.floor(Math.random() * 100)}`
-
     it('should be able to remove when the given player exists', () => {
+      const axedPlayerId = `player-${Math.floor(Math.random() * 100)}`
+
       game.removePlayer(axedPlayerId)
-      expect(
-        game.players.findIndex((player) => player.id === axedPlayerId),
-      ).toEqual(-1)
+      expect(game.players).not.toContain(new Player(axedPlayerId))
     })
 
-    it('should throw error when removing non-existent player', () => {
+    it('should throw error when removing a non-existent player', () => {
       const nonExistentPlayerId = 'ghost-player'
       expect(() => game.removePlayer(nonExistentPlayerId)).toThrow()
+    })
+
+    it('should trigger a turn change if the current player leaving the game', () => {
+      // After 10 turns
+      for (let i = 0; i < 10; i++) {
+        game.nextTurn()
+      }
+
+      const currentPlayerId = game.currentPlayer?.id
+      const nextPlayer = getNextElement(game.players, game.currentPlayer)
+
+      if (currentPlayerId) {
+        game.removePlayer(currentPlayerId)
+      }
+
+      expect(game.currentPlayer).toEqual(nextPlayer)
     })
   })
 
   describe('should update turn', () => {
-    it('should set `currentPlayer` to the only player when one player exists ', () => {
+    it('should set `currentPlayer` to the only player in the game', () => {
       const game = new Game()
 
       const player1Id = 'player-1'
@@ -108,16 +134,16 @@ describe('Class `Game`', () => {
       )
       playerIds.forEach((id) => game.addPlayer(id))
 
-      expect(game.currentPlayer?.id).toBe('player-1')
+      expect(game.currentPlayer).toEqual(new Player('player-1'))
 
       for (let i = 1; i < numberOfPlayers; i++) {
         game.nextTurn()
-        expect(game.currentPlayer?.id).toBe(`player-${i + 1}`)
+        expect(game.currentPlayer).toEqual(new Player(`player-${i + 1}`))
       }
 
       // After going through all players, it should cycle back the first player in the list
       game.nextTurn()
-      expect(game.currentPlayer?.id).toBe('player-1')
+      expect(game.currentPlayer).toEqual(new Player('player-1'))
     })
   })
 })
