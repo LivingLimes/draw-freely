@@ -1,8 +1,30 @@
-import Game from '../game'
-import Player from '../player'
-import Drawing from '../drawing'
+import Game from '../models/game'
+import Player from '../models/player'
+import Drawing from '../models/drawing'
 import * as crypto from 'node:crypto'
 import { getNextElement } from '../utils'
+
+const DRAWING_BUFFER_SIZE = 300 * 300 * 4
+
+function createGameWithIds(players: Player['id'][]): Game {
+  const game = new Game()
+
+  players.forEach((player) => {
+    game.addPlayer(player)
+  })
+
+  return game
+}
+
+function createGameWithPlayers(count: number): Game {
+  const game = new Game()
+
+  for (let i = 0; i < count; i++) {
+    game.addPlayer(`player-${i}`)
+  }
+
+  return game
+}
 
 describe('Class `Game`', () => {
   describe('should initialise a game', () => {
@@ -36,31 +58,36 @@ describe('Class `Game`', () => {
   })
 
   describe('adding a new player', () => {
-    const game = new Game()
-
     const newPlayerId = 'new-player'
-    const anotherNewPlayerId = 'another-player'
+    const anotherNewPlayerId = 'another-new-player'
 
     it('should add a new player', () => {
+      const game = createGameWithIds([newPlayerId])
+
       game.addPlayer(newPlayerId)
-      expect(game.players).toContainEqual(new Player(newPlayerId))
+      expect(game.players.some((player) => player.id === newPlayerId)).toBe(
+        true,
+      )
     })
 
     it('should set the new player as #currentTurnPlayer as there is only one player', () => {
-      expect(game.currentPlayer).toEqual(new Player(newPlayerId))
+      const game = createGameWithIds([newPlayerId])
+
+      expect(game.currentPlayer?.id).toEqual(newPlayerId)
     })
 
     it('should not trigger a turn change when there are more than one player in the game', () => {
+      const game = createGameWithIds([newPlayerId])
+
       game.addPlayer(anotherNewPlayerId)
-      expect(game.currentPlayer).not.toEqual(new Player(anotherNewPlayerId))
+      expect(game.currentPlayer?.id).not.toEqual(anotherNewPlayerId)
     })
   })
 
   it('should update the drawing with the given one', () => {
     const game = new Game()
 
-    const arraySize = 300 * 300 * 4
-    const newDrawing = Drawing.createFrom(Buffer.alloc(arraySize, 1))
+    const newDrawing = Drawing.createFrom(Buffer.alloc(DRAWING_BUFFER_SIZE, 1))
     game.updateDrawing(newDrawing)
 
     expect(game.drawing).toEqual(newDrawing)
@@ -68,37 +95,43 @@ describe('Class `Game`', () => {
 
   describe('should reset the game', () => {
     const game = new Game()
-    game.resetGame()
+
+    const newDrawing = Drawing.createFrom(Buffer.alloc(DRAWING_BUFFER_SIZE, 1))
+    const emptyDrawing = Drawing.createEmpty()
+    game.updateDrawing(newDrawing)
 
     it('should clear the canvas', () => {
-      expect(game.drawing).toEqual(Drawing.createEmpty())
+      expect(game.drawing).not.toEqual(emptyDrawing)
+      game.resetGame()
+      expect(game.drawing).toEqual(emptyDrawing)
     })
 
     it('should reset the game mode', () => {
+      game.resetGame()
       expect(game.gameMode).toEqual(null)
     })
   })
 
   describe('remove a given player', () => {
-    const game = new Game()
-
-    for (let i = 0; i < 100; i++) {
-      game.addPlayer(`player-${i}`)
-    }
-
     it('should be able to remove when the given player exists', () => {
-      const axedPlayerId = `player-${Math.floor(Math.random() * 100)}`
+      const game = createGameWithPlayers(100)
 
-      game.removePlayer(axedPlayerId)
-      expect(game.players).not.toContain(new Player(axedPlayerId))
+      const removedPlayerId = `player-${Math.floor(Math.random() * 100)}`
+
+      game.removePlayer(removedPlayerId)
+      expect(game.players).not.toContain(new Player(removedPlayerId))
     })
 
     it('should throw error when removing a non-existent player', () => {
+      const game = createGameWithPlayers(100)
+
       const nonExistentPlayerId = 'ghost-player'
       expect(() => game.removePlayer(nonExistentPlayerId)).toThrow()
     })
 
     it('should trigger a turn change if the current player leaving the game', () => {
+      const game = createGameWithPlayers(100)
+
       // After 10 turns
       for (let i = 0; i < 10; i++) {
         game.nextTurn()
@@ -145,5 +178,17 @@ describe('Class `Game`', () => {
       game.nextTurn()
       expect(game.currentPlayer).toEqual(new Player('player-1'))
     })
+  })
+})
+
+describe('check if the given player in the list', () => {
+  it('should return true if the given player is in the list', () => {
+    const game = createGameWithPlayers(10)
+    expect(game.hasPlayer(`player-1`)).toBe(true)
+  })
+
+  it('should return false if the given player is not in the list', () => {
+    const game = createGameWithPlayers(10)
+    expect(game.hasPlayer(`player-100`)).toBe(false)
   })
 })

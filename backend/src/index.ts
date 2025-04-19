@@ -1,9 +1,9 @@
 import { createServer } from 'http'
 import { Server } from 'socket.io'
-import Drawing from '@/drawing'
-import { SOCKET_EVENTS_INBOUND, SOCKET_EVENTS_OUTBOUND } from '@/utils'
-import Game from '@/game'
-import { GameMode } from '@/game-mode'
+import Drawing from '@/models/drawing'
+import { SOCKET_EVENTS_INBOUND, SOCKET_EVENTS_OUTBOUND } from '@/events'
+import Game from '@/models/game'
+import GameMode from '@/game-mode'
 
 const PORT = 3001
 
@@ -20,7 +20,6 @@ const io = new Server(httpServer, {
   },
 })
 
-// Initialise a new game
 const game = new Game()
 
 io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
@@ -28,29 +27,34 @@ io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
 
   game.addPlayer(socket.id)
 
-  socket.emit(SOCKET_EVENTS_OUTBOUND.UPDATE_TURN, game.currentPlayer)
+  socket.emit(SOCKET_EVENTS_OUTBOUND.UPDATE_TURN, {
+    turnPlayer: game.currentPlayer?.id,
+  })
 
   socket.emit(SOCKET_EVENTS_OUTBOUND.INITIAL_DATA, {
     lineLengthLimit: game.lineLengthLimit,
-    drawing: game.drawing,
+    drawing: game.drawing.getValue(),
     gameMode: game.gameMode,
   })
 
-  socket.on(SOCKET_EVENTS_INBOUND.DRAW, (drawingAsArray) => {
-    if (
-      game.currentPlayer?.id !== socket.id ||
-      !game.players.every((player) => player.id === socket.id)
-    ) {
-      return
-    }
+  socket.on(
+    SOCKET_EVENTS_INBOUND.DRAW,
+    (drawingAsArray: Buffer<ArrayBufferLike>) => {
+      if (game.currentPlayer?.id !== socket.id || !game.hasPlayer(socket.id)) {
+        return
+      }
 
-    if (!Drawing.canCreate(drawingAsArray)) {
-      return
-    }
-    game.updateDrawing(Drawing.createFrom(drawingAsArray))
+      if (!Drawing.canCreate(drawingAsArray)) {
+        return
+      }
+      game.updateDrawing(Drawing.createFrom(drawingAsArray))
 
-    socket.broadcast.emit(SOCKET_EVENTS_OUTBOUND.DRAW, game.drawing)
-  })
+      socket.broadcast.emit(
+        SOCKET_EVENTS_OUTBOUND.DRAW,
+        game.drawing.getValue(),
+      )
+    },
+  )
 
   socket.on(SOCKET_EVENTS_INBOUND.SELECT_GAME_MODE, (mode: GameMode) => {
     game.gameMode = mode
@@ -59,35 +63,31 @@ io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
   })
 
   socket.on(SOCKET_EVENTS_INBOUND.CLEAR_CANVAS, () => {
-    if (!game.players.every((player) => player.id === socket.id)) {
+    if (!game.hasPlayer(socket.id)) {
       return
     }
 
     game.resetGame()
 
-    socket.broadcast.emit(SOCKET_EVENTS_OUTBOUND.CLEAR_CANVAS, game.gameMode)
+    socket.broadcast.emit(SOCKET_EVENTS_OUTBOUND.CLEAR_CANVAS, {
+      gameMode: game.gameMode,
+    })
   })
 
   socket.on(SOCKET_EVENTS_INBOUND.END_TURN, () => {
-    if (
-      game.currentPlayer?.id !== socket.id ||
-      !game.players.every((player) => player.id === socket.id)
-    ) {
+    if (game.currentPlayer?.id !== socket.id || !game.hasPlayer(socket.id)) {
       return
     }
 
     game.nextTurn()
 
-    io.emit(SOCKET_EVENTS_OUTBOUND.UPDATE_TURN, game.currentPlayer)
+    io.emit(SOCKET_EVENTS_OUTBOUND.UPDATE_TURN, {
+      turnPlayer: game.currentPlayer.id,
+    })
   })
 
   socket.on(SOCKET_EVENTS_INBOUND.DISCONNECT, (reason) => {
     console.log('User disconnected', socket.id, reason)
-
-    // Turn player disconnect special case
-    if (game.currentPlayer?.id === socket.id) {
-      game.nextTurn()
-    }
 
     // Turn player and viewer disconnect
     game.removePlayer(socket.id)

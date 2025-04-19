@@ -1,12 +1,13 @@
 import * as crypto from 'node:crypto'
 import Player from './player'
 import Drawing from './drawing'
-import { getNextElement } from './utils'
-import { GameMode } from './game-mode'
+import { getNextElement } from '../utils'
+import GameMode from '../game-mode'
 
 interface IGame {
   addPlayer: (playerId: Player['id']) => void
   removePlayer: (playerId: Player['id']) => void
+  hasPlayer: (playerId: Player['id']) => boolean
   updateDrawing: (drawing: Drawing) => void
   resetGame: () => void
   nextTurn: () => void
@@ -59,6 +60,10 @@ export default class Game implements IGame {
     } else {
       throw Error(`Player ${playerId} not found.`)
     }
+  }
+
+  public hasPlayer(playerId: Player['id']): boolean {
+    return this.#players.some((player) => player.id === playerId)
   }
 
   public updateDrawing(drawing: Drawing): void {

@@ -1,4 +1,4 @@
-import Drawing from '../drawing'
+import Drawing from '../models/drawing'
 
 const canvasHeight = 300
 const canvasWidth = 300
