@@ -4,20 +4,9 @@ import Drawing from './drawing'
 import { getNextElement } from '../utils'
 import GameMode from '../game-mode'
 
-interface IGame {
-  addPlayer: (playerId: Player['id']) => void
-  removePlayer: (playerId: Player['id']) => void
-  hasPlayer: (playerId: Player['id']) => boolean
-  updateDrawing: (drawing: Drawing) => void
-  resetGame: () => void
-  nextTurn: () => void
-  gameMode: GameMode | undefined | null
-  lineLengthLimit: number
-}
-
-export default class Game implements IGame {
+export default class Game {
   #id = crypto.randomUUID()
-  #currentTurnPlayer: Player | undefined | null = undefined
+  #currentTurnPlayer: Player | null = null
   #drawing: Drawing = Drawing.createEmpty()
   #players: Player[] = []
   public gameMode: GameMode | undefined | null = undefined
