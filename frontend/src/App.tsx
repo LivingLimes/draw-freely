@@ -1,8 +1,10 @@
-import React, { useEffect, useRef, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { socket } from "./socket"
 import { distanceBetweenTwoPoints } from "./utils"
 import "./App.css"
 import { type Pointer } from "./types"
+import About from "./About"
+import useCanvas from "./useCanvas"
 const CANVAS_HEIGHT = 300
 const CANVAS_WIDTH = 300
 
@@ -40,48 +42,21 @@ enum GameMode {
 }
 
 const App: React.FC = () => {
-  // I'd typically initialise this as undefined, but using it as a `ref` in the canvas element requires it to be | null.
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const [gameMode, setGameMode] = useState<GameMode | null>(null)
+  const { canvasRef, contextRef, shouldShowCanvas } = useCanvas({ gameMode })
   const [isDrawing, setIsDrawing] = useState(false)
-  const [gameMode, setGameMode] = useState<GameMode | undefined | null>(
-    undefined
-  )
   const [turnPlayer, setTurnPlayer] = useState<string | undefined>(undefined)
-  const contextRef = useRef<CanvasRenderingContext2D>(undefined)
 
   const [lineLengthLimit, setLineLengthLimit] = useState<number | undefined>(
     undefined
   )
   const [currentLineLength, setCurrentLineLength] = useState<number>(0)
 
-  const [ongoingPointer, setOngoingPointer] = useState<Pointer | undefined | null>(undefined)
+  const [ongoingPointer, setOngoingPointer] = useState<
+    Pointer | undefined | null
+  >(undefined)
 
-  const shouldShowCanvas = gameMode !== undefined && gameMode !== null
   const isMyTurn = socket.id === turnPlayer
-
-  useEffect(() => {
-    if (!shouldShowCanvas) return
-
-    const canvas = canvasRef.current
-    if (!canvas) {
-      console.error(NO_CANVAS_ERROR)
-      return
-    }
-
-    canvas.width = CANVAS_HEIGHT
-    canvas.height = CANVAS_WIDTH
-
-    const context = canvas.getContext("2d")
-    if (!context) {
-      console.error(NO_CONTEXT_ERROR)
-      return
-    }
-
-    context.lineCap = "round"
-    context.strokeStyle = "black"
-    context.lineWidth = 2
-    contextRef.current = context
-  }, [shouldShowCanvas])
 
   useEffect(() => {
     const onDraw = (drawing: Array<number>) => {
@@ -342,20 +317,7 @@ const App: React.FC = () => {
               )
             }
           )}
-        <div className="about-content">
-          <h3>About</h3>
-          <p>
-            Draw Freely is a free online multiplayer drawing game designed to
-            encourage mindfulness and creativity.
-          </p>
-          <p>
-            Choose your game mode and draw something with someone else or just
-            by yourself. You don't compete against each other, you just draw things for fun!
-          </p>
-          <aside>
-            Note, this game is still a work in progress!
-          </aside>
-        </div>
+          <About />
         </>
       )}
     </div>
