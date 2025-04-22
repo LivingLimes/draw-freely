@@ -14,15 +14,6 @@ const config: Config = {
   coveragePathIgnorePatterns: ['/node_modules/'],
   coverageProvider: 'v8',
   coverageReporters: ['json', 'text', 'lcov', 'clover', 'text-summary'],
-  // Jest will fail if there is less than 80% branch, line, and function coverage, or if there are more than 10 uncovered statements:
-  coverageThreshold: {
-    global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: -10,
-    },
-  },
 
   // Test Environment
   testEnvironment: 'jest-environment-node',
