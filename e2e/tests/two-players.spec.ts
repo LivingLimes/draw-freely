@@ -1,40 +1,65 @@
-import { test, expect, BrowserContext, Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import Player from '../utils/player'
+import { GameMode } from '../utils/game-mode'
+import { afterEach } from 'node:test'
 
-test.describe('two players', () => {
-  let p1: BrowserContext
-  let p2: BrowserContext
-  let p1Page: Page
-  let p2Page: Page
-  let currentPlayer: 'player-1' | 'player-2'
+test.describe('Two players in the game', () => {
   
-  test.beforeEach(async ({ browser }) => {
-    p1 = await browser.newContext()
-    p2 = await browser.newContext()
-    p1Page = await p1.newPage()
-    p2Page = await p2.newPage()
+  afterEach(async () => {
+    await Player.cleanUp()
   })
   
-  test.afterEach(async () => {
-    await p1Page.close()
-    await p2Page.close()
-    await p1.close()
-    await p2.close()
+  test('Player should see and select game mode (one line)', async ({ browser }) => {
+    const player1 = await Player.create(browser)
+    
+    await player1.goto()
+    
+    await expect(player1.page.getByRole('button', { name: 'One Line' })).toBeVisible()
+    await expect(player1.page.getByRole('button', { name: 'Line Length Limit' })).toBeVisible()
+    
+    await player1.selectMode(GameMode.OneLine)
+    await expect(player1.page.getByText('You\'ve selected the \'One Line')).toBeVisible()
+    
   })
   
-  test('should be able to select game mode', async () => {
-    await p1Page.goto('/')
+  test('Both players should see the canvas', async ({ browser }) => {
+    const player1 = await Player.create(browser)
+    const player2 = await Player.create(browser)
     
-    await expect(p1Page.getByRole('button', { name: 'One Line' })).toBeVisible()
-    await expect(p1Page.getByRole('button', { name: 'Line Length Limit' })).toBeVisible()
+    await player1.goto()
+    await player2.goto()
+    
+    await player1.selectMode(GameMode.OneLine)
+    
+    await expect(player1.page.locator('canvas')).toBeVisible()
+    await expect(player2.page.locator('canvas')).toBeVisible()
+    
+    
   })
   
-  test('should update turn to another player after drawing', async () => {
-    await p1Page.goto('/')
-    await p2Page.goto('/')
+  test('Only one player can be the current player and draw at the first turn', async ({ browser }) => {
+    const player1 = await Player.create(browser)
+    const player2 = await Player.create(browser)
     
-    await p1Page.getByRole('button', { name: 'One Line' }).click()
+    await player1.goto()
+    await player2.goto()
     
-    await expect(p1Page.locator('canvas')).toBeVisible()
-    await expect(p2Page.locator('canvas')).toBeVisible()
+    await player1.selectMode(GameMode.OneLine)
+    
+    if (await player1.isMyTurn()) {
+      await test.step('Player 1 draws', async () => {
+        await player1.drawDot()
+        await expect(player1.page.getByText('Waiting for your turn to draw.')).toBeVisible()
+      })
+    }
+    else if (await player2.isMyTurn()) {
+      await test.step('Player 2 draws', async () => {
+        await player2.drawDot()
+        await expect(player2.page.getByText('Waiting for your turn to draw.')).toBeVisible()
+      })
+    }
+    else {
+      throw Error('No player is the current turn player')
+    }
   })
 })
