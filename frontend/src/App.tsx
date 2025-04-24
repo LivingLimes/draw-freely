@@ -149,6 +149,7 @@ const App: React.FC = () => {
     }
 
     const selectedGameMode = (mode: GameMode) => {
+      console.log(`Received game mode selection: ${mode}`)
       setGameMode(mode)
     }
 

@@ -35,7 +35,6 @@ test.describe('two players', () => {
     await p1Page.getByRole('button', { name: 'One Line' }).click()
     
     await expect(p1Page.locator('canvas')).toBeVisible()
-    // TODO: This test failed for the element not found
     await expect(p2Page.locator('canvas')).toBeVisible()
   })
 })
