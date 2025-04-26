@@ -97,3 +97,17 @@ io.on(SOCKET_EVENTS_INBOUND.CONNECTION, (socket) => {
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
+
+httpServer.on('request', (req, res) => {
+  if (req.url === '/debug' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        players: game.players.map((p) => p.id),
+        currentPlayer: game.currentPlayer?.id,
+        gameMode: game.gameMode,
+        playerCount: game.players.length,
+      }),
+    )
+  }
+})

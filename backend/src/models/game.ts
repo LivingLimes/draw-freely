@@ -46,6 +46,10 @@ export default class Game {
         this.nextTurn()
       }
       this.#players = this.#players.filter((player) => player.id !== playerId)
+
+      if (this.#players.length === 0) {
+        this.resetGame()
+      }
     } else {
       throw Error(`Player ${playerId} not found.`)
     }
