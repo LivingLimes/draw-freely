@@ -3,6 +3,7 @@ import { GameMode } from './game-mode'
 
 export default class Player {
   static allPlayers: Player[] = []
+  id: number
   readonly browser: Browser
   context!: BrowserContext
   page!: Page
@@ -12,19 +13,28 @@ export default class Player {
   }
   
   static async create(browser: Browser) {
-    const player = new Player(browser)
-    Player.allPlayers.push(player)
-    player.context = await player.browser.newContext()
-    player.page = await browser.newPage()
+    let player: Player
+    
+    await test.step('Player connects', async () => {
+      player = new Player(browser)
+      Player.allPlayers.push(player)
+      player.id = Player.allPlayers.indexOf(player) + 1
+      player.context = await player.browser.newContext()
+      player.page = await browser.newPage()
+      return player
+    })
+    
     return player
   }
   
   static async cleanUp() {
-    for (let player of Player.allPlayers) {
-      await player.disconnect()
-    }
-    
-    Player.allPlayers = []
+    await test.step('Clean up players', async () => {
+      for (let player of Player.allPlayers) {
+        await player.disconnect()
+      }
+      
+      Player.allPlayers = []
+    })
   }
   
   public async goto(url: string = '/') {
@@ -34,8 +44,10 @@ export default class Player {
   }
   
   public async disconnect() {
-    await this.page.close()
-    await this.context.close()
+    await test.step('Player disconnects', async () => {
+      await this.page.close()
+      await this.context.close()
+    })
   }
   
   public async selectMode(gameMode: GameMode) {
@@ -46,9 +58,6 @@ export default class Player {
     }, { box: true })
   }
   
-  public async isMyTurn() {
-    return await this.page.getByText('It is your turn to draw!').isVisible()
-  }
   
   public async drawDot() {
     await test.step(`Player draws line`, async () => {
@@ -61,6 +70,7 @@ export default class Player {
         await expect(canvas).toBeVisible()
       }, { box: true })
       
+      // TODO: mouse drag and draw a line
       await test.step(`Start drawing`, async () => {
         await this.page.mouse.move(rect.x + 50, rect.y + 50)
         await this.page.mouse.down()
@@ -68,4 +78,14 @@ export default class Player {
       }, { box: true })
     }, { box: true })
   }
+  
+  public async isMyTurn() {
+    return await test.step('Wait 5s and check if I am the current turn player', async () => {
+      const isMyTurn = this.page.getByText('It is your turn to draw')
+      await isMyTurn.waitFor({ state: 'visible', timeout: 5000 })
+      
+      return isMyTurn.isVisible
+    }, { box: true })
+  }
+  
 }
